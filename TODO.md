@@ -24,6 +24,9 @@ The fixes that block testing, with editor steps, are in the design record's
 - [ ] **Test the new email bodies** (1, 2) — the digest and FNC-001 now build their
       emails inline (`format_map` in the digest), done in the editor 2026-11-04. Check
       one of each arrives readable, and that replies with `[CC]` reach the folder.
+- [ ] **Deploy the statement parser fix** (16) — packed PDF-converted pages were
+      dropped; paste, append three outputs, add the total-check alert. Design
+      record, fix 8. Then re-send the October statement that lost its DocuSign charge.
 - [ ] **FNC-002 does not copy coding to the charge** (3) — step 16; also decide
       how a later edit of a Receipt's coding reaches its Transaction.
 - [ ] **Paste the cover template** (4) — `templates/finance_package_cover.html` now

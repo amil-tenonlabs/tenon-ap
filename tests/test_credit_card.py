@@ -56,6 +56,23 @@ ROWS = [
     ['Total', None, None, None, None, '215.00', '45.00'],
 ]
 
+# A bank export converted from PDF: page 1 in columns, page 2's header and rows
+# each packed into a single cell, the rows one per line, out of column alignment.
+PACKED = [
+    ['Commercial Card', None, None, 'PAT SAMPLE\nOctober 01, 2026 - October 31, 2026', None, None, None, None, None],
+    [' Total Activity                                   $1,826.90 ', None, None, None, None, None, None, None, None],
+    ['Posting Transaction', None, None, None, None, None, None, None, None],
+    ['Date', 'Date', 'Description', None, 'Reference Number', None, 'MCC', 'Charge', 'Credit'],
+    ['10/05', '10/01', 'THE HOME DEPOT #1234     ATLANTA      GA', None, 2.4692166275407714e+22, None, 5200, 182.40, None],
+    [' Transactions', None, None, None, None, None, None, None, None],
+    ['Date     Date           Description                       Reference Number      MCC      Charge      Credit',
+     None, None, None, None, None, None, None, None],
+    ['10/26    10/22          CURB TAXI                ASTORIA      NY      24055236296941234311381    4121       13.50\n'
+     '10/30    10/29          SIGNING SERVICE          800-555-0100 DE      24793386302003604307226    5817    1,606.00\n'
+     '10/31    10/31          HARDWARE RETURN          800-555-0101 NY      24793386302003604307227    5200       25.00',
+     None, None, None, None, None, None, None, None],
+]
+
 RULES = [
     {'rule_type': 'vendor', 'value': '  Uber ', 'active': 'true'},
     {'rule_type': 'max_amount', 'value': '10', 'active': None},
@@ -171,6 +188,24 @@ def statement_checks():
               r['ignored_rule_count'] == 1 and 'ten dollars' in r['rule_warnings'])
         check(tag + 'transaction_id is card-date-amount-sequence',
               t[0]['transaction_id'] == '1234-20261228-182.40-1')
+
+        check(tag + 'no Total Activity on the sheet: a warning, nothing refused',
+              'No "Total Activity"' in r['total_warning'] and r['parsed_total'] == '170.00')
+
+        p = _parse(PACKED, reader)
+        pt = p['transactions']
+        check(tag + 'a page packed into one cell: every line is a transaction',
+              [x['merchant'] for x in pt] == ['THE HOME DEPOT #1234 ATLANTA GA', 'CURB TAXI ASTORIA NY',
+                                              'SIGNING SERVICE 800-555-0100 DE', 'HARDWARE RETURN 800-555-0101 NY'])
+        check(tag + 'packed lines keep their own transaction date and amount',
+              [(x['transaction_date'], x['amount']) for x in pt[1:3]] == [('2026-10-22', 13.5), ('2026-10-29', 1606.0)])
+        check(tag + 'a packed line with one amount is a charge: position cannot show a credit',
+              len(pt) == 4 and pt[3]['amount'] == 25.0)
+        check(tag + 'Total Activity agrees: no warning', p['statement_total'] == '1826.90' and p['total_warning'] == '')
+        short = [row[:] for row in PACKED]
+        short[-1] = [short[-1][0].split('\n', 1)[1]]
+        check(tag + 'a row lost against Total Activity is a warning naming the difference',
+              '13.50' in _parse(short, reader)['total_warning'])
 
         bare = [row[:] for row in ROWS]
         bare[3] = ['Date', 'Date', 'Description', 'Reference Number', 'MCC', 'Charge', 'Credit']

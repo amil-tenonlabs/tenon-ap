@@ -102,6 +102,16 @@ None is fixed. Most live in recipe steps rather than in the repo's files.
    intake does not read the result, and nothing is logged or sent. RCP-003 already knows
    how to turn an image into a PDF.
 
+16. **A page packed into one cell was dropped — fixed in the repo, 2026-11-04.** A bank
+    PDF converted to Excel can put a page's header in one cell and its rows in another,
+    one per line, out of column alignment. The parser found no charge in the Charge
+    column and skipped them: on the first real statement tested, 3 of 14 charges and $752
+    of $1,023 (a DocuSign charge among them). `_unpack` now reads each line - date, date,
+    description, reference, MCC, amount - into the header's columns; a line with one
+    amount is a charge, since position cannot show a credit. Every statement is now also
+    held to its own "Total Activity": `total_warning` names any difference, and says so
+    when no total is printed.
+
 **Wrong in some cases**
 
 6. **The intake listens to the APM mailbox, unfiltered.** Every email APM receives —
@@ -116,7 +126,9 @@ None is fixed. Most live in recipe steps rather than in the repo's files.
 8. **A re-sent or overlapping statement duplicates charges.** `transaction_id` ends in
    the row's position in the file, so the same charge in another export gets a new id
    and passes the duplicate check (a KNOWN GAP check in the test proves it). Use
-   card + date + amount + reference number, which the statement carries.
+   card + date + amount + reference number, which the statement carries - read as text:
+   Excel stores a column-laid reference as a number, losing digits, so on the first real
+   statement two different MTA charges showed the same reference.
 9. **A recurring charge can match the wrong month.** Same amount and same card is enough,
    whatever the dates, and the first unmatched charge wins — a monthly $49.99
    subscription receipt can take any month's charge. Prefer the nearest date; require the
@@ -189,6 +201,15 @@ renumbers every step below it, so work through each recipe from its last change 
    field of the same name — as FNC-001 step 13 does.
 7. **Cover page** (finding 4). Paste `templates/finance_package_cover.html` into the
    Finance Package Cover template: its four tables now print with `{{{ }}}`.
+
+8. **Statement parser** (finding 16). Paste `credit-card-coding/parse_statement.py` into
+   Email Intake step 7's code, whole. Append three string fields to that step's output
+   schema - `statement_total`, `parsed_total`, `total_warning` - never regenerate it.
+   Then, after step 9 (the ignored-rules warning), add an IF: `total_warning` is
+   present → Log message (WARN) with the file name and `total_warning`, and Send email
+   to the tester, subject `[CC] Statement total check: ` + file name. Re-sending a
+   statement already loaded adds only the rows that were missing: rows read before keep
+   their ids.
 
 **How to test**
 
