@@ -102,6 +102,16 @@ None is fixed. Most live in recipe steps rather than in the repo's files.
    intake does not read the result, and nothing is logged or sent. RCP-003 already knows
    how to turn an image into a PDF.
 
+16. **A page packed into one cell was dropped — fixed in the repo, 2026-11-04.** A bank
+    PDF converted to Excel can put a page's header in one cell and its rows in another,
+    one per line, out of column alignment. The parser found no charge in the Charge
+    column and skipped them: on the first real statement tested, 3 of 14 charges and $752
+    of $1,023 (a DocuSign charge among them). `_unpack` now reads each line - date, date,
+    description, reference, MCC, amount - into the header's columns; a line with one
+    amount is a charge, since position cannot show a credit. Every statement is now also
+    held to its own "Total Activity": `total_warning` names any difference, and says so
+    when no total is printed.
+
 **Wrong in some cases**
 
 6. **The intake listens to the APM mailbox, unfiltered.** Every email APM receives —
@@ -116,7 +126,9 @@ None is fixed. Most live in recipe steps rather than in the repo's files.
 8. **A re-sent or overlapping statement duplicates charges.** `transaction_id` ends in
    the row's position in the file, so the same charge in another export gets a new id
    and passes the duplicate check (a KNOWN GAP check in the test proves it). Use
-   card + date + amount + reference number, which the statement carries.
+   card + date + amount + reference number, which the statement carries - read as text:
+   Excel stores a column-laid reference as a number, losing digits, so on the first real
+   statement two different MTA charges showed the same reference.
 9. **A recurring charge can match the wrong month.** Same amount and same card is enough,
    whatever the dates, and the first unmatched charge wins — a monthly $49.99
    subscription receipt can take any month's charge. Prefer the nearest date; require the
@@ -155,21 +167,17 @@ renumbers every step below it, so work through each recipe from its last change 
 
 **Before switching anything on**
 
-1. **Keep the two products out of each other's mail** (finding 6). Credit card mail goes
-   to the APM address with a plus tag, `apm+cc@…` (owner, 2026-11-04). Exchange Online
-   delivers it to the APM mailbox and keeps the tagged address on the message. In
-   Outlook on the APM mailbox, add a rule: recipient address includes `apm+cc` **or**
-   subject contains `[CC]` → move to a new folder `Credit Cards`, stop processing more
-   rules. In Email Intake, set the New email trigger's folder to `Credit Cards`. A rule
-   runs on delivery, so APM's recipes, watching the inbox, never see these emails and
-   this recipe never sees APM's. The subject half is for replies: the recipes send from
-   the plain APM address, so a cardholder's reply comes back without the tag. If the
-   trigger offers no folder, add a trigger condition on the same two tests instead and
-   accept that APM still sees the test emails.
-   - Plus addressing must be on for the tenant. It is by default; an admin can confirm
-     with `Get-OrganizationConfig | fl DisablePlusAddressInRecipients` (False is on).
-   - A sender who Bccs the address leaves no tagged recipient on the message; ask
-     testers to put it in To.
+1. **Keep the two products out of each other's mail** (finding 6). Every credit card
+   email carries `[CC]` in its subject (owner, 2026-11-04; a plus-tagged address was
+   considered and dropped). In Outlook on the APM mailbox, add a rule: subject contains
+   `[CC]` → move to a new folder `Credit Cards`, stop processing more rules. In Email
+   Intake, set the New email trigger's folder to `Credit Cards`. A rule runs on delivery,
+   so APM's recipes, watching the inbox, never see these emails and this recipe never
+   sees APM's. A reply keeps the tag ("RE: [CC] …"), so every email the recipes send
+   starts its subject with `[CC] ` — FNC-001 steps 15 and 20, FNC-002 steps 18 and 24,
+   RCP-002 steps 14 and 20, RCP-003 step 35, Item Complete step 16. A sender who forgets
+   the tag reaches APM's inbox instead. If the trigger offers no folder, add a trigger
+   condition on the subject instead and accept that APM still sees the test emails.
 2. **Send finance mail to yourself.** RCP-003 step 35 and RCP-002 step 20 have a client's
    finance address typed in. Put your own in for testing; an account property
    `CC_FINANCE_EMAIL` replaces it before a client.
@@ -194,9 +202,18 @@ renumbers every step below it, so work through each recipe from its last change 
 7. **Cover page** (finding 4). Paste `templates/finance_package_cover.html` into the
    Finance Package Cover template: its four tables now print with `{{{ }}}`.
 
+8. **Statement parser** (finding 16). Paste `credit-card-coding/parse_statement.py` into
+   Email Intake step 7's code, whole. Append three string fields to that step's output
+   schema - `statement_total`, `parsed_total`, `total_warning` - never regenerate it.
+   Then, after step 9 (the ignored-rules warning), add an IF: `total_warning` is
+   present → Log message (WARN) with the file name and `total_warning`, and Send email
+   to the tester, subject `[CC] Statement total check: ` + file name. Re-sending a
+   statement already loaded adds only the rows that were missing: rows read before keep
+   their ids.
+
 **How to test**
 
-- Email receipts as **PDFs** to `apm+cc@…`, with the coding in the body —
+- Email receipts as **PDFs** with `[CC]` in the subject and the coding in the body —
   `Project: …  Cost code: …  Reason: …`. Phone photos are dropped until finding 5 is
   fixed, and there is no way yet to add coding by reply.
 - Name the statement `<CARDHOLDER NAME>_<masked card>_<number>_<YYYYMMDD>.xlsx`, e.g.

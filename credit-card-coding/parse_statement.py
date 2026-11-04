@@ -20,6 +20,11 @@ DATE_KEY = 'date'
 MAX_SPAN = 4          # max adjacent cells joined to form one header label
 MAX_DIAG_ROWS = 100   # cap on diagnostic rows per sheet in the error message
 MD_TOKEN = re.compile(r'(?<!\d)\d{1,2}[/\-]\d{1,2}(?:[/\-]\d{2,4})?(?!\d)')
+AMT = r'\(?-?\$?[\d,]*\d\.\d{2}\)?'
+PACKED_LINE = re.compile(
+    r'^\s*(\d{1,2}/\d{1,2})\s+(\d{1,2}/\d{1,2})\s+(.*?)(?:\s+(\d{8,}))?(?:\s+(\d{4}))?'
+    r'\s+(' + AMT + r')(?:\s+(' + AMT + r'))?\s*$')
+TOTAL_ACTIVITY = re.compile(r'total\s+activity\s*(' + AMT + ')', re.I)
 
 
 def _decode(content):
@@ -264,6 +269,49 @@ def _num(v):
     return -n if neg else n
 
 
+def _unpack(rows, rng):
+    """PDF conversions sometimes pack a page's transactions into one cell, one per line
+    ('10/30  10/29  MERCHANT  ref  mcc  606.00'). Yield each such line as an ordinary row
+    with its values in the header's columns; every other row passes through unchanged.
+    A line with one amount is a charge, with two a charge then a credit."""
+    def col(name):
+        r = rng.get(name)
+        return r[0] if r else None
+
+    for row in rows:
+        cells = [c for c in row if _text(c)]
+        lines = str(cells[0]).splitlines() if len(cells) == 1 and isinstance(cells[0], str) else []
+        parsed = [PACKED_LINE.match(line) for line in lines]
+        if not lines or not any(parsed):
+            yield row
+            continue
+        for m in parsed:
+            if not m:
+                continue
+            values = {
+                col('posting date'): m.group(1),
+                col('transaction date'): m.group(2),
+                col('description'): m.group(3),
+                col('reference number'): m.group(4),
+                col('mcc'): m.group(5),
+                col('charge'): m.group(6),
+                col('credit'): m.group(7),
+            }
+            values.pop(None, None)
+            width = max(values) + 1 if values else 0
+            yield [values.get(i) for i in range(width)]
+
+
+def _statement_total(rows):
+    """The statement's own 'Total Activity' figure, from any cell on the sheet, or None."""
+    for row in rows:
+        for c in row:
+            m = TOTAL_ACTIVITY.search(_text(c))
+            if m:
+                return _num(m.group(1)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    return None
+
+
 # ---------- exemption rules ----------
 
 FALSE_WORDS = ('false', '0', 'no', 'n', 'f', 'off')
@@ -380,7 +428,7 @@ def main(input):
     out = []
     skipped = 0
     seq = 0
-    for row in rows[h_last + 1:]:
+    for row in _unpack(rows[h_last + 1:], rng):
         if not any(_text(c) for c in row):
             continue  # blank row
         td_raw = _range_val(row, rng.get('transaction date'))
@@ -421,6 +469,15 @@ def main(input):
             'exempt': _is_exempt(merchant, amount, vendors, limits),
         })
 
+    statement_total = _statement_total(rows)
+    parsed_total = sum((Decimal(str(t['amount'])) for t in out), Decimal('0'))
+    if statement_total is None:
+        total_warning = 'No "Total Activity" found on sheet %s; %d transactions totalling %s were not checked against the statement.' % (sheet_name, len(out), format(parsed_total, '.2f'))
+    elif parsed_total != statement_total:
+        total_warning = 'Parsed transactions total %s but the statement shows Total Activity %s (difference %s): rows may have been missed or misread.' % (format(parsed_total, '.2f'), format(statement_total, '.2f'), format(statement_total - parsed_total, '.2f'))
+    else:
+        total_warning = ''
+
     return {
         'card_last4': card_last4,
         'statement_date': stmt,
@@ -435,5 +492,8 @@ def main(input):
         'ignored_rule_count': sum(1 for w in rule_warnings if w.startswith('rule #')),
         'rule_warnings': '; '.join(rule_warnings),
         'exempt_count': sum(1 for t in out if t['exempt']),
+        'statement_total': '' if statement_total is None else format(statement_total, '.2f'),
+        'parsed_total': format(parsed_total, '.2f'),
+        'total_warning': total_warning,
         'transactions': out,
     }

@@ -12,18 +12,21 @@ Numbers are the findings in `design/credit-card-coding.md`, which has the detail
 The fixes that block testing, with editor steps, are in the design record's
 "Getting it running".
 
-- [ ] **Separate credit card mail from APM's on the APM mailbox** (finding 6) — mail to
-      `apm+cc@…`, an Outlook rule moving it (or a `[CC]` subject) to a `Credit
-      Cards` folder, the intake watching only that.
+- [ ] **Separate credit card mail from APM's on the APM mailbox** (finding 6) — `[CC]` in
+      every subject, an Outlook rule moving it to a `Credit Cards` folder, the
+      intake watching only that.
       Testing steps 1-3 in the design record, before switching anything on.
-- [ ] **Backstop in APM's `mailroom`** — a trigger condition skipping mail sent to
-      `apm+cc` or with `[CC]` in the subject, in case the folder rule is off. An
+- [ ] **Backstop in APM's `mailroom`** — a trigger condition skipping mail with
+      `[CC]` in the subject, in case the folder rule is off. An
       APM recipe change; confirm first that its trigger watches the inbox only.
 - [ ] **Own mailbox for credit card coding** — decided for later; until then the
       folder rule above is what keeps APM's mail out.
 - [ ] **Test the new email bodies** (1, 2) — the digest and FNC-001 now build their
       emails inline (`format_map` in the digest), done in the editor 2026-11-04. Check
       one of each arrives readable, and that replies with `[CC]` reach the folder.
+- [ ] **Deploy the statement parser fix** (16) — packed PDF-converted pages were
+      dropped; paste, append three outputs, add the total-check alert. Design
+      record, fix 8. Then re-send the October statement that lost its DocuSign charge.
 - [ ] **FNC-002 does not copy coding to the charge** (3) — step 16; also decide
       how a later edit of a Receipt's coding reaches its Transaction.
 - [ ] **Paste the cover template** (4) — `templates/finance_package_cover.html` now
