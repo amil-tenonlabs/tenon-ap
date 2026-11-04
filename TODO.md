@@ -27,12 +27,12 @@ The fixes that block testing, with editor steps, are in the design record's
 - [ ] **Alert on `total_warning`** (16) — the parser and its three outputs are deployed
       *(export 11-04)*; the IF after step 9 that logs and emails a total mismatch is
       not. Design record, fix 8.
-- [ ] **A receipt that should have matched did not** — first live test *(export 11-04)*:
-      a receipt and its charge agreed on amount, card and merchant, the charge already
-      loaded nine minutes earlier, yet FNC-001 sent "no matching card transaction".
-      The match condition reads correctly, so check FNC-001 step 6's output in that
-      job: did the search on amount and `matched` is false return the charge? Re-sending
-      the statement runs FNC-002 over the same receipt, a second test of the search.
+- [ ] **FNC-001 never matches: step 10 saves a null Record ID** — first live test
+      *(export 11-04)*: step 6 found the charge and step 9 took the yes side, but step
+      10 set `matched_record_id` to null, so step 11 sent "no matching card
+      transaction". Every receipt arriving after its statement is told it has no
+      match. The export's pill reads as the loop's `Record ID`; re-drag it from step
+      8's current item. Then test one receipt for a charge already loaded.
 - [ ] **Card Holders names must match the statement's spacing** — FNC-003 compares
       names lower-cased with runs of spaces collapsed, so a name entered without its
       space never resolves, and the digest and Item Complete fall back to finance.
