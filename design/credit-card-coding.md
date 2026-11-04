@@ -271,6 +271,7 @@ activity, never one per receipt. **Built in the repo, not yet in Workato.** Chec
 | `credit-card-coding/suggest_coding.py` | RCP-002, after its Search (new) |
 | `credit-card-coding/build_coding_sheet.py` | RCP-002, inside the cardholder loop (new) |
 | `credit-card-coding/batch_notifications.py` | Send Queued Notifications (new recipe) |
+| `credit-card-coding/split_shares.py` | FNC-004 Apply Coding, split path (new) |
 | `credit-card-coding/open_items.py` | RCP-002 step 4 (changed: carries suggestions) |
 | `credit-card-coding/group_finance_package.py` | RCP-003 step 6 (changed: holds uncoded) |
 | `credit-card-coding/extract_receipt_fields.json` | FNC-001 step 4 (changed: field descriptions, file name) |
@@ -392,6 +393,64 @@ Return `applied` and `not_found` counts.
 - Step 6: paste `group_finance_package.py`; add an input `today` =
   `today.strftime('%Y-%m-%d')`; append the output `held_uncoded_count` and add it to
   step 7's log line.
+
+### Splits: one charge across projects
+
+Decided by the owner (2026-11-04): a charge can be split across projects and cost codes, and
+its receipt goes into each project's package. Built in the repo with the rest of this
+section; checks pass, needs testing in Workato.
+
+- **Entered** as one line or one sheet row per share, the same reference on each, each with a
+  share: `$400` or `60%` in a reply (a bare number never counts there, since it could be a
+  cost code), or the sheet's **Split share** column, where a plain number is dollars. On a
+  receipt email the AI step fills `split_text`, one share per line as
+  `project | cost code | share | reason`. Lines for one charge without a share on each are
+  not a split: the first is used and the sender is told.
+- **Checked** by `split_shares.py` against the charge: percentages become dollars, the last
+  percentage share takes any rounding cent, a credit splits as a credit, and shares that do
+  not add up apply nothing and say by how much. A field blank on a share is filled from the
+  charge's own coding, then from the one value the other shares agree on; a share still
+  missing one is refused. One share of the whole charge is ordinary coding.
+- **Stored** in a **Splits** table, one row per share. The charge's own fields hold a summary
+  (`Split: Perry / Oak St`, the cost codes, the reasons) so the digest counts it coded, and
+  `coding_source` is `split`, so it never feeds the history rule.
+- **Packaged** one entry per share, in its own project's group, at its share, with the line
+  "Split: 400.00 of 606.00 (also Oak St 02-100 206.00)"; the receipt goes in each package.
+  Each share is sent and versioned on its own Splits row, so one project's package cannot
+  mark another's share sent. Shares that do not total the charge hold it.
+
+**Build, on top of steps 1-8 above**
+
+1. Data table **Splits**: `transaction_id`, `project_code`, `cost_code`, `reason` (short
+   text), `amount` (number), `sent_in_package` (boolean), `package_version_sent` (short
+   text), `sent_date` (date-time).
+2. Email Intake: `read_coding_reply.py` and `read_coding_sheet.py` (the sheet's Split share
+   column) each gain `shares` on every update - append to `updates` a list `shares` of
+   `project_code`, `cost_code`, `reason`, `share`. The AI step on a reply adds `split_text`
+   as FNC-001 step 4 has it.
+3. FNC-004 Apply Coding: its update input gains `shares` (as above) and `split_text`. For a
+   charge whose update has either, Execute Python code `split_shares.py`: `charge_amount` =
+   the charge's amount, `shares_json` = `shares.to_json`, `split_text`, and the charge's
+   current `project_code`, `cost_code`, `reason`; outputs `ok`, `is_split`, `shares` (list:
+   `project_code`, `cost_code`, `reason`, `amount`, `amount_text`), `problems`,
+   `project_code`, `cost_code`, `reason`, `split_note`.
+   - Not `ok`: queue a `problem` with `problems`; change nothing.
+   - `ok` and `is_split`: delete the charge's Splits rows (Search by `transaction_id`, then
+     Delete records), Create one per share, and update the charge with the summary
+     `project_code`, `cost_code`, `reason` and `coding_source` `split`. Queue a `coded` row
+     whose `note` is `split_note`.
+   - `ok`, not `is_split`: the ordinary path with the returned three fields.
+   A split given for a receipt with no charge yet waits: store `split_text` on the Receipts
+   row (a new long-text field) and apply it when FNC-001 or FNC-002 matches the receipt.
+4. FNC-001 step 4: append the `split_text` field from `extract_receipt_fields.json`. After
+   step 13 (charge matched), IF `split_text` is present → FNC-004 with one update: `ref` =
+   the transaction id, `ref_type` `transaction`, `split_text`, `source` `email`.
+5. RCP-003: after step 4, Search Splits (all rows, limit 1000, field name to value). Step 6
+   gains the input `splits_json` = those Records `.to_json`. Step 28's output gains
+   `mark_sent_splits` (list: `record_id`, `transaction_id`); after step 36's batch update of
+   Transactions, Update records batch on **Splits** from `mark_sent_splits`, with the same
+   `sent_in_package`, `package_version_sent` and `sent_date` values. Step 28's inputs are
+   unchanged; the items it receives now carry `table`, `cost_code` and `split_note`.
 
 ## Open decisions
 

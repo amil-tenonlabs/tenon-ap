@@ -49,7 +49,11 @@ def main(input):
             cost_codes[_s(r.get('Record ID'))] = _s(r.get('cost_code'))
 
     def _cc(t):
-        return cost_codes.get(_s(t.get('receipt_id'))) or '(none)'
+        return _s(t.get('cost_code')) or cost_codes.get(_s(t.get('receipt_id'))) or '(none)'
+
+    def _merchant(t):
+        note = _s(t.get('split_note'))
+        return _s(t.get('merchant')) + (' - ' + note if note else '')
 
     flagged = {}
     for e in excluded:
@@ -85,8 +89,8 @@ def main(input):
         flagged_text = 'None - all backup files were included.'
         flagged_html = '<p>None - all backup files were included.</p>'
 
-    changes_text = '\n'.join('- %s | %s | %s | %s' % (_s(t.get('transaction_id')), _s(t.get('transaction_date')), _s(t.get('merchant')), _s(t.get('amount'))) for t in new_inc)
-    changes_html = '<ul>' + ''.join('<li><b>%s</b> - %s - %s - %s</li>' % (_esc(_s(t.get('transaction_id'))), _esc(_s(t.get('transaction_date'))), _esc(_s(t.get('merchant'))), _esc(_s(t.get('amount')))) for t in new_inc) + '</ul>'
+    changes_text = '\n'.join('- %s | %s | %s | %s' % (_s(t.get('transaction_id')), _s(t.get('transaction_date')), _merchant(t), _s(t.get('amount'))) for t in new_inc)
+    changes_html = '<ul>' + ''.join('<li><b>%s</b> - %s - %s - %s</li>' % (_esc(_s(t.get('transaction_id'))), _esc(_s(t.get('transaction_date'))), _esc(_merchant(t)), _esc(_s(t.get('amount')))) for t in new_inc) + '</ul>'
 
     # ---- cover page HTML (values HTML-escaped, amounts to 2 decimals) ----
     cc_tot = {}
@@ -100,7 +104,7 @@ def main(input):
 
     cover_changes_html = _table(
         ['Date', 'Transaction ID', 'Merchant', 'Cardholder', 'Amount', 'Receipt number', 'Cost code'],
-        [[t.get('transaction_date'), t.get('transaction_id'), t.get('merchant'), t.get('cardholder_name'), '%.2f' % _amt(t.get('amount')), t.get('receipt_number'), _cc(t)] for t in new_inc],
+        [[t.get('transaction_date'), t.get('transaction_id'), _merchant(t), t.get('cardholder_name'), '%.2f' % _amt(t.get('amount')), t.get('receipt_number'), _cc(t)] for t in new_inc],
         right=(4,)) if new_inc else ''
 
     def _status(t):
@@ -111,7 +115,7 @@ def main(input):
 
     cover_transactions_html = _table(
         ['Date', 'Merchant', 'Cardholder', 'Amount', 'Receipt number', 'Cost code', 'Status'],
-        [[t.get('transaction_date'), t.get('merchant'), t.get('cardholder_name'), '%.2f' % _amt(t.get('amount')), t.get('receipt_number'), _cc(t), _status(t)] for t in included],
+        [[t.get('transaction_date'), _merchant(t), t.get('cardholder_name'), '%.2f' % _amt(t.get('amount')), t.get('receipt_number'), _cc(t), _status(t)] for t in included],
         right=(3,))
 
     cover_flagged_html = _table(
@@ -124,7 +128,7 @@ def main(input):
     if flagged_list:
         log += '\nFLAGGED receipts:\n' + flagged_text
 
-    keys = ('record_id', 'transaction_id', 'transaction_date', 'merchant', 'amount', 'cardholder_name', 'receipt_number', 'status', 'is_new')
+    keys = ('record_id', 'table', 'transaction_id', 'transaction_date', 'merchant', 'split_note', 'amount', 'cost_code', 'cardholder_name', 'receipt_number', 'status', 'is_new')
     return {
         'send_package': send,
         'included_file_count': file_count,
@@ -148,5 +152,6 @@ def main(input):
         'cover_flagged_html': cover_flagged_html,
         'included_transactions': [{k: t.get(k) for k in keys} for t in included],
         'flagged_receipts': flagged_list,
-        'mark_sent': [{'record_id': _s(t.get('record_id')), 'transaction_id': _s(t.get('transaction_id'))} for t in new_inc],
+        'mark_sent': [{'record_id': _s(t.get('record_id')), 'transaction_id': _s(t.get('transaction_id'))} for t in new_inc if _s(t.get('table')) != 'splits'],
+        'mark_sent_splits': [{'record_id': _s(t.get('record_id')), 'transaction_id': _s(t.get('transaction_id'))} for t in new_inc if _s(t.get('table')) == 'splits'],
     }

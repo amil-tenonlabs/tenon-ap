@@ -47,6 +47,9 @@ The fixes that block testing, with editor steps, are in the design record's
 - [ ] **Build coding after the receipt** — replies, the coding sheet, history and
       5-minute batched email, decided 2026-11-04 and built in the repo; the Workato
       side is the design record's "Coding after the receipt", steps 1-8, in order.
+- [ ] **Build splits** — one charge across projects and cost codes, decided 2026-11-04
+      and built in the repo; the Workato side is the design record's "Splits", steps 1-5,
+      after the coding build.
 - [ ] **Charge Form once Item Complete stops emailing it** — attach it to the finance
       package, or drop it. Decide before step 6 of that build.
 
