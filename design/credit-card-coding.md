@@ -154,12 +154,21 @@ editor shows them in the 2026-11-04 export.
 
 **Before switching anything on**
 
-1. **Keep the two products out of each other's mail** (finding 6). In Outlook on the APM
-   mailbox, add a rule: subject contains `[CC]` → move to a new folder `Credit Cards`.
-   In Email Intake, set the New email trigger's folder to `Credit Cards`. A rule runs on
-   delivery, so APM's own recipes, watching the inbox, never see these emails and this
-   recipe never sees APM's. If the trigger offers no folder, add a trigger condition
-   instead — subject contains `[CC]` — and accept that APM still sees the test emails.
+1. **Keep the two products out of each other's mail** (finding 6). Credit card mail goes
+   to the APM address with a plus tag, `apm+cc@…` (owner, 2026-11-04). Exchange Online
+   delivers it to the APM mailbox and keeps the tagged address on the message. In
+   Outlook on the APM mailbox, add a rule: recipient address includes `apm+cc` **or**
+   subject contains `[CC]` → move to a new folder `Credit Cards`, stop processing more
+   rules. In Email Intake, set the New email trigger's folder to `Credit Cards`. A rule
+   runs on delivery, so APM's recipes, watching the inbox, never see these emails and
+   this recipe never sees APM's. The subject half is for replies: the recipes send from
+   the plain APM address, so a cardholder's reply comes back without the tag. If the
+   trigger offers no folder, add a trigger condition on the same two tests instead and
+   accept that APM still sees the test emails.
+   - Plus addressing must be on for the tenant. It is by default; an admin can confirm
+     with `Get-OrganizationConfig | fl DisablePlusAddressInRecipients` (False is on).
+   - A sender who Bccs the address leaves no tagged recipient on the message; ask
+     testers to put it in To.
 2. **Send finance mail to yourself.** RCP-003 step 34 and RCP-002 step 19 have a client's
    finance address typed in. Put your own in for testing; an account property
    `CC_FINANCE_EMAIL` replaces it before a client.
@@ -186,7 +195,7 @@ editor shows them in the 2026-11-04 export.
 
 **How to test**
 
-- Email receipts as **PDFs** with `[CC]` in the subject and the coding in the body —
+- Email receipts as **PDFs** to `apm+cc@…`, with the coding in the body —
   `Project: …  Cost code: …  Reason: …`. Phone photos are dropped until finding 5 is
   fixed, and there is no way yet to add coding by reply.
 - Name the statement `<CARDHOLDER NAME>_<masked card>_<number>_<YYYYMMDD>.xlsx`, e.g.

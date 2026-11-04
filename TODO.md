@@ -12,8 +12,9 @@ Numbers are the findings in `design/credit-card-coding.md`, which has the detail
 The fixes that block testing, with editor steps, are in the design record's
 "Getting it running".
 
-- [ ] **Separate credit card mail from APM's on the APM mailbox** (finding 6) — an
-      Outlook rule to a `Credit Cards` folder, the intake watching only that.
+- [ ] **Separate credit card mail from APM's on the APM mailbox** (finding 6) — mail to
+      `apm+cc@…`, an Outlook rule moving it (or a `[CC]` subject) to a `Credit
+      Cards` folder, the intake watching only that.
       Testing steps 1-3 in the design record, before switching anything on.
 - [ ] **Own mailbox for credit card coding** — decided for later; until then the
       folder rule above is what keeps APM's mail out.
