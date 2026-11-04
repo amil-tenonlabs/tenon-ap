@@ -38,7 +38,7 @@ def main(input):
         if not _coded(r):
             continue
         key = (_person(r.get('cardholder_name')), merchant_key(r.get('merchant')))
-        if not key[1]:
+        if not key[1] or _s(r.get('coding_source')).lower() == 'split':
             continue
         history.setdefault(key, []).append(r)
     for rows in history.values():
@@ -55,7 +55,7 @@ def main(input):
             continue
         key = (_person(r.get('cardholder_name')), merchant_key(r.get('merchant')))
         rows = [h for h in history.get(key, []) if h.get('Record ID') != r.get('Record ID')]
-        explicit = [h for h in rows if _s(h.get('coding_source')).lower() != 'history']
+        explicit = [h for h in rows if _s(h.get('coding_source')).lower() not in ('history', 'split')]
         if len(explicit) >= 2 and _coding(explicit[0]) == _coding(explicit[1]):
             coding = dict(zip(FIELDS, _coding(explicit[0])))
             # only blanks are filled: a field the cardholder already gave is kept

@@ -41,12 +41,15 @@ The fixes that block testing, with editor steps, are in the design record's
       the job as `reason` and no `project_code`. FNC-001 step 4's field descriptions
       ask for a "project code"; say a project is a job name or number, and the reason
       is the purpose of the purchase.
-- [ ] **Image receipts dropped** (5) — convert to PDF before FNC-001, and have the
-      intake act on a `failed` result.
-
+- [ ] **Image receipts dropped** (5) — the fix is built in the repo: images converted to
+      PDF only for HEIC and TIFF, every receipt read by AI by Workato's Analyze image.
+      Workato side: design record, "Reading receipts with AI by Workato", steps 1-3.
 - [ ] **Build coding after the receipt** — replies, the coding sheet, history and
       5-minute batched email, decided 2026-11-04 and built in the repo; the Workato
       side is the design record's "Coding after the receipt", steps 1-8, in order.
+- [ ] **Build splits** — one charge across projects and cost codes, decided 2026-11-04
+      and built in the repo; the Workato side is the design record's "Splits", steps 1-5,
+      after the coding build.
 - [ ] **Charge Form once Item Complete stops emailing it** — attach it to the finance
       package, or drop it. Decide before step 6 of that build.
 

@@ -151,8 +151,8 @@ None is fixed. Most live in recipe steps rather than in the repo's files.
 
 **Other**
 
-- The AI steps use Workato's OpenAI utility, not the Claude connector APM uses. Whether
-  AP moves to Claude is open.
+- The AI steps use AI by Workato (`open_ai_utility` in the export), not the Claude
+  connector APM uses. Kept for receipts too (owner, 2026-11-04).
 - Both daily recipes run at 08:00 UTC — 3 or 4 AM in New York.
 - `cardholder_email` on Transactions is never written; the digest resolves the address
   each run through FNC-003.
@@ -271,6 +271,7 @@ activity, never one per receipt. **Built in the repo, not yet in Workato.** Chec
 | `credit-card-coding/suggest_coding.py` | RCP-002, after its Search (new) |
 | `credit-card-coding/build_coding_sheet.py` | RCP-002, inside the cardholder loop (new) |
 | `credit-card-coding/batch_notifications.py` | Send Queued Notifications (new recipe) |
+| `credit-card-coding/split_shares.py` | FNC-004 Apply Coding, split path (new) |
 | `credit-card-coding/open_items.py` | RCP-002 step 4 (changed: carries suggestions) |
 | `credit-card-coding/group_finance_package.py` | RCP-003 step 6 (changed: holds uncoded) |
 | `credit-card-coding/extract_receipt_fields.json` | FNC-001 step 4 (changed: field descriptions, file name) |
@@ -392,6 +393,130 @@ Return `applied` and `not_found` counts.
 - Step 6: paste `group_finance_package.py`; add an input `today` =
   `today.strftime('%Y-%m-%d')`; append the output `held_uncoded_count` and add it to
   step 7's log line.
+
+### Splits: one charge across projects
+
+Decided by the owner (2026-11-04): a charge can be split across projects and cost codes, and
+its receipt goes into each project's package. Built in the repo with the rest of this
+section; checks pass, needs testing in Workato.
+
+- **Entered** as one line or one sheet row per share, the same reference on each, each with a
+  share: `$400` or `60%` in a reply (a bare number never counts there, since it could be a
+  cost code), or the sheet's **Split share** column, where a plain number is dollars. On a
+  receipt email the AI step fills `split_text`, one share per line as
+  `project | cost code | share | reason`. Lines for one charge without a share on each are
+  not a split: the first is used and the sender is told.
+- **Checked** by `split_shares.py` against the charge: percentages become dollars, the last
+  percentage share takes any rounding cent, a credit splits as a credit, and shares that do
+  not add up apply nothing and say by how much. A field blank on a share is filled from the
+  charge's own coding, then from the one value the other shares agree on; a share still
+  missing one is refused. One share of the whole charge is ordinary coding.
+- **Stored** in a **Splits** table, one row per share. The charge's own fields hold a summary
+  (`Split: Perry / Oak St`, the cost codes, the reasons) so the digest counts it coded, and
+  `coding_source` is `split`, so it never feeds the history rule.
+- **Packaged** one entry per share, in its own project's group, at its share, with the line
+  "Split: 400.00 of 606.00 (also Oak St 02-100 206.00)"; the receipt goes in each package.
+  Each share is sent and versioned on its own Splits row, so one project's package cannot
+  mark another's share sent. Shares that do not total the charge hold it.
+
+**Build, on top of steps 1-8 above**
+
+1. Data table **Splits**: `transaction_id`, `project_code`, `cost_code`, `reason` (short
+   text), `amount` (number), `sent_in_package` (boolean), `package_version_sent` (short
+   text), `sent_date` (date-time).
+2. Email Intake: `read_coding_reply.py` and `read_coding_sheet.py` (the sheet's Split share
+   column) each gain `shares` on every update - append to `updates` a list `shares` of
+   `project_code`, `cost_code`, `reason`, `share`. The AI step on a reply adds `split_text`
+   as FNC-001 step 4 has it.
+3. FNC-004 Apply Coding: its update input gains `shares` (as above) and `split_text`. For a
+   charge whose update has either, Execute Python code `split_shares.py`: `charge_amount` =
+   the charge's amount, `shares_json` = `shares.to_json`, `split_text`, and the charge's
+   current `project_code`, `cost_code`, `reason`; outputs `ok`, `is_split`, `shares` (list:
+   `project_code`, `cost_code`, `reason`, `amount`, `amount_text`), `problems`,
+   `project_code`, `cost_code`, `reason`, `split_note`.
+   - Not `ok`: queue a `problem` with `problems`; change nothing.
+   - `ok` and `is_split`: delete the charge's Splits rows (Search by `transaction_id`, then
+     Delete records), Create one per share, and update the charge with the summary
+     `project_code`, `cost_code`, `reason` and `coding_source` `split`. Queue a `coded` row
+     whose `note` is `split_note`.
+   - `ok`, not `is_split`: the ordinary path with the returned three fields.
+   A split given for a receipt with no charge yet waits: store `split_text` on the Receipts
+   row (a new long-text field) and apply it when FNC-001 or FNC-002 matches the receipt.
+4. FNC-001 step 4: append the `split_text` field from `extract_receipt_fields.json`. After
+   step 13 (charge matched), IF `split_text` is present → FNC-004 with one update: `ref` =
+   the transaction id, `ref_type` `transaction`, `split_text`, `source` `email`.
+5. RCP-003: after step 4, Search Splits (all rows, limit 1000, field name to value). Step 6
+   gains the input `splits_json` = those Records `.to_json`. Step 28's output gains
+   `mark_sent_splits` (list: `record_id`, `transaction_id`); after step 36's batch update of
+   Transactions, Update records batch on **Splits** from `mark_sent_splits`, with the same
+   `sent_in_package`, `package_version_sent` and `sent_date` values. Step 28's inputs are
+   unchanged; the items it receives now carry `table`, `cost_code` and `split_note`.
+
+## Reading receipts with AI by Workato: photos, scans and PDFs
+
+Decided by the owner (2026-11-04): AI by Workato, not the Claude connector, reads receipts.
+Fixes finding 5. Built in the repo, not in Workato; checks pass (`tests/test_read_receipt.py`),
+needs testing in Workato.
+
+**Why this way.** AI by Workato's **Analyze image** action answers a question about an image or
+a PDF - png, jpg, jpeg, webp, gif or pdf, up to 20 MB, a PDF up to 15 pages, per Workato's docs
+as searched 2026-11-04 (the page itself could not be read from here, so check the field names
+in the editor). It is the connector the recipes already use for AI, so no other connection is
+needed. Every receipt, text PDF or photo, goes through it, so there is one path, and it reads the
+email's coding and splits in the same call. A photo needs no conversion; HEIC and TIFF, which it
+does not take, are converted to PDF first.
+
+**The rules**
+
+- An attachment that is an image (jpg, jpeg, png, gif, webp, heic, heif, tif, tiff) and not
+  inline is a receipt candidate, sent straight to FNC-001, never through the classifier, which
+  sees only a file name. Inline images are signatures and logos and are skipped.
+- The question (`read_receipt_prompt.txt`) asks for one JSON object; `read_receipt.py` checks the
+  answer. An answer that is not that object logs nothing. `is_receipt` false (a logo, a photo of
+  something else) logs nothing and tells the sender what it saw. A total that cannot be read is
+  blank, never zero, and the sender is asked for a clearer copy; the receipt is still logged with
+  its file.
+- The amount is the final total charged - tax, tip and fees in, discounts out; a handwritten tip
+  and total on a restaurant slip win over the printed subtotal.
+- A year that is not printed is left blank, not guessed.
+- The email body is data, not instructions: the question says so.
+- The receipt is stored as received. RCP-003 already turns an image into a PDF for the package.
+
+**Build**
+
+1. **Email Intake.** Add an **Else if** to step 5 (the statement-file IF), above its Else:
+   - Condition: `['jpg','jpeg','png','gif','webp','heic','heif','tif','tiff'].include?(Name.to_s.downcase.split('.').last)`
+     is true, AND `IsInline` is not true.
+   - IF the extension is heic, heif, tif or tiff: PDF tools **Convert to PDF**, file format
+     `image`, source file = `ContentBytes.to_s.gsub(/\s/, '').match?(/\A[A-Za-z0-9+\/]+={0,2}\z/) ? ContentBytes.to_s.gsub(/\s/, '').decode_base64 : ContentBytes`,
+     output name = `Name.to_s.sub(/\.[^.]+\z/, '')`, in a Try; on error, email the sender
+     "[CC] Could not read " + Name + " - please send it as a PDF or a JPG". Call FNC-001 with the
+     converted file's contents `.encode_base64` and the name with `.pdf`.
+   - Otherwise call FNC-001 as step 18 does, with the attachment as it is.
+   - Step 17's receipt condition gains AND the name ends `.pdf`, so a file the classifier calls a
+     receipt but no reader can open is skipped.
+2. **FNC-001.** Insert, as the first steps inside the Try:
+   - AI by Workato **Analyze image**. File: the trigger's `attachment_content.decode_base64`, and
+     the file name or type from `attachment_name` if the action asks for one. Question:
+     `read_receipt_prompt.txt` - paste the text, then replace `{{attachment_name}}` with the
+     trigger's `attachment_name` pill and `{{email_body}}` with
+     `email_body.presence || '(none)'`. If the action offers structured output fields, leave
+     them off: the JSON answer is checked by the next step.
+   - Execute Python code, `read_receipt.py`: input `response_text` = Analyze image's answer;
+     outputs `ok`, `is_receipt` (boolean), `merchant`, `receipt_date`, `receipt_month`, `amount`
+     (number), `currency`, `card_last_4`, `receipt_number`, `project_code`, `cost_code`,
+     `reason`, `split_text`, `notes`, `problems`.
+   - IF `ok` is not true OR `is_receipt` is not true: email the sender "[CC] Not read as a
+     receipt: " + `attachment_name`, body `notes` or `problems`; Return result `status`
+     `not_receipt`, `matched` false. (Once Notifications exists, queue a `problem` instead.)
+   - Re-point every pill that read the old AI step to the Python step: step 5's nine fields
+     (receipt_number, receipt_date in its formula, merchant, amount, currency, card_last4 in its
+     formula, project_code, cost_code, reason) and step 6's amount filter. Then delete the old
+     extract-text and Parse text steps; Workato refuses if anything still reads them.
+   - IF `problems` is present after logging: email the sender "[CC] Receipt received - please
+     check " + `attachment_name` with `problems`. It is still matched as usual.
+3. Test with one phone photo of a receipt, one scanned PDF, one text PDF and one email signature
+   image: three logged and one skipped. Check one restaurant slip with a handwritten tip.
 
 ## Open decisions
 

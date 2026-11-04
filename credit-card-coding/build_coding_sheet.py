@@ -6,8 +6,8 @@ import zipfile
 from datetime import date
 from xml.sax.saxutils import escape
 
-HEADER = ['Ref', 'Cardholder', 'Date', 'Merchant', 'Amount', 'Still needed', 'Project', 'Cost code', 'Reason']
-WIDTHS = [26, 18, 12, 36, 11, 24, 18, 14, 36]
+HEADER = ['Ref', 'Cardholder', 'Date', 'Merchant', 'Amount', 'Still needed', 'Project', 'Cost code', 'Reason', 'Split share']
+WIDTHS = [26, 18, 12, 36, 11, 24, 18, 14, 36, 12]
 NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'
 REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
 PKG = 'http://schemas.openxmlformats.org/package/2006/relationships'
@@ -53,6 +53,7 @@ def main(input):
             it.get('suggested_project_code') or '',
             it.get('suggested_cost_code') or '',
             it.get('suggested_reason') or '',
+            '',
         ])
     # style 0 plain, 1 bold header, 2 amount, 3 unlocked input cell
     xml_rows = []

@@ -9,6 +9,7 @@ R_ID = '{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id'
 TXN_REF = re.compile(r'^\d{4}-\d{8}-\d+\.\d{2}-\d+$')
 RCPT_REF = re.compile(r'^R-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
 COLUMNS = {'ref': 'ref', 'project': 'project_code', 'costcode': 'cost_code', 'reason': 'reason'}
+SHARE_COLUMNS = ('splitshare', 'share', 'split')
 
 
 def _decode(content):
@@ -85,18 +86,20 @@ def main(input):
             keys = {re.sub(r'[^a-z]', '', _text(v).lower()): i for i, v in enumerate(row) if _text(v)}
             cols = {field: keys[k] for k, field in COLUMNS.items() if k in keys}
             if len(cols) == len(COLUMNS):
+                share_col = next((keys[k] for k in SHARE_COLUMNS if k in keys), None)
                 break
         else:
             continue
-        updates, problems, blank = [], [], 0
-        seen = set()
+        problems, blank = [], 0
+        found, order = {}, []
         for n, row in rows[h + 1:]:
-            get = lambda f: _text(row[cols[f]]) if cols[f] < len(row) else ''
-            ref = get('ref')
-            coding = {f: get(f) for f in ('project_code', 'cost_code', 'reason')}
-            if not ref and not any(coding.values()):
+            get = lambda i: _text(row[i]) if i is not None and i < len(row) else ''
+            ref = get(cols['ref'])
+            coding = {f: get(cols[f]) for f in ('project_code', 'cost_code', 'reason')}
+            share = get(share_col)
+            if not ref and not any(coding.values()) and not share:
                 continue
-            if not any(coding.values()):
+            if not any(coding.values()) and not share:
                 blank += 1
                 continue
             if TXN_REF.match(ref):
@@ -106,11 +109,24 @@ def main(input):
             else:
                 problems.append('Row %d: "%s" is not a charge or receipt reference.' % (n, ref or '(blank)'))
                 continue
-            if value in seen:
-                problems.append('Row %d: %s appears twice; the first row was used.' % (n, ref))
-                continue
-            seen.add(value)
-            updates.append(dict(coding, ref=value, ref_type=ref_type))
+            if value not in found:
+                found[value] = (ref_type, [])
+                order.append(value)
+            found[value][1].append((n, dict(coding, share=share)))
+        updates = []
+        for value in order:
+            ref_type, given = found[value]
+            update = {'ref': value, 'ref_type': ref_type, 'project_code': '', 'cost_code': '', 'reason': '', 'shares': []}
+            if len(given) > 1 and all(c['share'] for _, c in given):
+                update['shares'] = [c for _, c in given]
+            else:
+                if len(given) > 1:
+                    problems.append('Rows %s: %s appears more than once without a Split share on every row; '
+                                    'row %d was used.' % (', '.join(str(n) for n, _ in given), value, given[0][0]))
+                first = dict(given[0][1])
+                first.pop('share', None)
+                update.update(first)
+            updates.append(update)
         return {
             'is_coding_sheet': True,
             'updates': updates,
