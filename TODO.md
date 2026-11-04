@@ -21,8 +21,9 @@ The fixes that block testing, with editor steps, are in the design record's
       APM recipe change; confirm first that its trigger watches the inbox only.
 - [ ] **Own mailbox for credit card coding** — decided for later; until then the
       folder rule above is what keeps APM's mail out.
-- [ ] **Digest emails are a blank finance cover** (1) — RCP-002 steps 13/19.
-- [ ] **FNC-001's matched / no-match emails are a blank Charge Form** (2) — steps 14/19.
+- [ ] **Test the new email bodies** (1, 2) — the digest and FNC-001 now build their
+      emails inline (`format_map` in the digest), done in the editor 2026-11-04. Check
+      one of each arrives readable, and that replies with `[CC]` reach the folder.
 - [ ] **FNC-002 does not copy coding to the charge** (3) — step 16; also decide
       how a later edit of a Receipt's coding reaches its Transaction.
 - [ ] **Paste the cover template** (4) — `templates/finance_package_cover.html` now
