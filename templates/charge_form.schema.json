@@ -1,0 +1,76 @@
+[
+ {
+  "control_type": "text",
+  "label": "Date of purchase",
+  "optional": true,
+  "type": "string",
+  "name": "date_of_purchase"
+ },
+ {
+  "control_type": "text",
+  "label": "Vendor",
+  "optional": true,
+  "type": "string",
+  "name": "vendor"
+ },
+ {
+  "control_type": "text",
+  "label": "Charge amount",
+  "optional": true,
+  "type": "string",
+  "name": "charge_amount"
+ },
+ {
+  "control_type": "text",
+  "label": "Reason for charge",
+  "optional": true,
+  "type": "string",
+  "name": "reason_for_charge"
+ },
+ {
+  "control_type": "text",
+  "label": "Job name",
+  "optional": true,
+  "type": "string",
+  "name": "job_name"
+ },
+ {
+  "control_type": "text",
+  "label": "Cost code work order",
+  "optional": true,
+  "type": "string",
+  "name": "cost_code_work_order"
+ },
+ {
+  "control_type": "text",
+  "label": "Purchased by",
+  "optional": true,
+  "type": "string",
+  "name": "purchased_by"
+ },
+ {
+  "control_type": "text",
+  "label": "Card holder",
+  "optional": true,
+  "type": "string",
+  "name": "card_holder"
+ },
+ {
+  "control_type": "checkbox",
+  "label": "Receipt included",
+  "render_input": "boolean_conversion",
+  "parse_output": "boolean_conversion",
+  "optional": true,
+  "toggle_hint": "Select from option list",
+  "toggle_field": {
+   "label": "Receipt included",
+   "control_type": "text",
+   "toggle_hint": "Use custom value",
+   "optional": true,
+   "type": "boolean",
+   "name": "receipt_included"
+  },
+  "type": "boolean",
+  "name": "receipt_included"
+ }
+]

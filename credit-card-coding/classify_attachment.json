@@ -1,0 +1,18 @@
+{
+ "category_type": "Finance document type",
+ "text": "='Email subject: ' + _dp('{\"pill_type\": \"output\", \"provider\": \"outlook\", \"line\": \"new_email_444b\", \"path\": [\"Subject\"]}').to_s + \"\nAttachment name: \" + _dp('{\"pill_type\": \"output\", \"provider\": \"foreach\", \"line\": \"foreach_a6af\", \"path\": [\"Name\"]}').to_s + \"\nContent type: \" + _dp('{\"pill_type\": \"output\", \"provider\": \"foreach\", \"line\": \"foreach_a6af\", \"path\": [\"ContentType\"]}').to_s + \"\nContent preview:\n\" + ((_dp('{\"pill_type\": \"output\", \"provider\": \"foreach\", \"line\": \"foreach_a6af\", \"path\": [\"ContentType\"]}').to_s.downcase.include?('text') || _dp('{\"pill_type\": \"output\", \"provider\": \"foreach\", \"line\": \"foreach_a6af\", \"path\": [\"ContentType\"]}').to_s.downcase.include?('csv') || _dp('{\"pill_type\": \"output\", \"provider\": \"foreach\", \"line\": \"foreach_a6af\", \"path\": [\"Name\"]}').to_s.downcase.ends_with?('.csv')) ? (_dp('{\"pill_type\": \"output\", \"provider\": \"foreach\", \"line\": \"foreach_a6af\", \"path\": [\"ContentBytes\"]}').to_s.gsub(/\\s/, '').match?(/\\A[A-Za-z0-9+\\/]+={0,2}\\z/) ? _dp('{\"pill_type\": \"output\", \"provider\": \"foreach\", \"line\": \"foreach_a6af\", \"path\": [\"ContentBytes\"]}').to_s.gsub(/\\s/, '').decode_base64 : _dp('{\"pill_type\": \"output\", \"provider\": \"foreach\", \"line\": \"foreach_a6af\", \"path\": [\"ContentBytes\"]}').to_s)[0, 3000] : '(binary content - classify from name and type)')",
+ "object_schema": [
+  {
+   "header": "transaction_statement",
+   "value": "A credit card transaction statement or export (typically an .xlsx workbook with a sheet listing Posting Date, Transaction Date, Description, Charge, Credit)"
+  },
+  {
+   "header": "receipt",
+   "value": "A single purchase receipt or invoice for an expense (usually a PDF or image) from a merchant"
+  },
+  {
+   "header": "other",
+   "value": "Anything that is not a transaction statement or a receipt (signatures, logos, unrelated documents)"
+  }
+ ]
+}

@@ -1,0 +1,100 @@
+[
+ {
+  "control_type": "text",
+  "label": "Receipt month",
+  "optional": true,
+  "type": "string",
+  "name": "receipt_month"
+ },
+ {
+  "control_type": "text",
+  "label": "Project code",
+  "optional": true,
+  "type": "string",
+  "name": "project_code"
+ },
+ {
+  "control_type": "text",
+  "label": "Version",
+  "optional": true,
+  "type": "string",
+  "name": "version"
+ },
+ {
+  "control_type": "text",
+  "label": "Generated date",
+  "optional": true,
+  "type": "string",
+  "name": "generated_date"
+ },
+ {
+  "control_type": "text",
+  "label": "Included count",
+  "optional": true,
+  "type": "string",
+  "name": "included_count"
+ },
+ {
+  "control_type": "text",
+  "label": "Included total",
+  "optional": true,
+  "type": "string",
+  "name": "included_total"
+ },
+ {
+  "control_type": "text",
+  "label": "New count",
+  "optional": true,
+  "type": "string",
+  "name": "new_count"
+ },
+ {
+  "control_type": "text",
+  "label": "New total",
+  "optional": true,
+  "type": "string",
+  "name": "new_total"
+ },
+ {
+  "control_type": "text",
+  "label": "Previous count",
+  "optional": true,
+  "type": "string",
+  "name": "previous_count"
+ },
+ {
+  "control_type": "text",
+  "label": "Previous total",
+  "optional": true,
+  "type": "string",
+  "name": "previous_total"
+ },
+ {
+  "control_type": "text",
+  "label": "Cost code totals html",
+  "optional": true,
+  "type": "string",
+  "name": "cost_code_totals_html"
+ },
+ {
+  "control_type": "text",
+  "label": "Changes html",
+  "optional": true,
+  "type": "string",
+  "name": "changes_html"
+ },
+ {
+  "control_type": "text",
+  "label": "Transactions html",
+  "optional": true,
+  "type": "string",
+  "name": "transactions_html"
+ },
+ {
+  "control_type": "text",
+  "label": "Flagged html",
+  "optional": true,
+  "type": "string",
+  "name": "flagged_html"
+ }
+]

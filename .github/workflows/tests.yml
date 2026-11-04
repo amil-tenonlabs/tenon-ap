@@ -1,0 +1,29 @@
+# Runs the Python steps' tests on every PR and push to main. No credentials, no
+# network: fixtures are built in memory.
+#
+# Python is pinned to 3.9 because Workato's Execute Python code step runs 3.9.19.
+# openpyxl is not installed, so the statement parser runs through the zipfile
+# reader it falls back to when Workato lacks openpyxl.
+
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Credit card coding
+        run: python3 tests/test_credit_card.py

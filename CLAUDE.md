@@ -14,14 +14,16 @@ says otherwise.
 
 ## Status
 
-Initial structure only (2026-11-04). No recipe, prompt or document is built yet.
-`design/ap-bot-overview.md` holds the proposed scope and every decision still
-open; `TODO.md` holds what has to happen before the first build.
+The first capability is **credit card coding** (`design/credit-card-coding.md`):
+built in Workato before this repo existed, brought in from an export on
+2026-11-04 unchanged, and reviewed — its findings are open in `TODO.md`.
+`design/ap-bot-overview.md` holds the proposed scope of the wider AP bot.
 
 ## What lives where
 
 | path | holds |
 | --- | --- |
+| `<capability>/` | One folder per Workato project, named for it (`credit-card-coding/`): its Python steps and AI step inputs, each mapped to its recipe step in the design record |
 | `design/` | One design record per capability: what was decided, what is proposed, what was measured on real data, and the Workato build steps |
 | `handoffs/` | Files written to another chat (APM, Tenon MCP), committed, per the rule below |
 | `claude-files/` | Reference documents for the Anthropic Files API, once the connector can resolve them (see Shared assets) |
@@ -29,8 +31,10 @@ open; `TODO.md` holds what has to happen before the first build.
 | `tests/` | Tests for any Python step in this repo, with an in-memory fixture — never real data |
 | `tools/` | Scripts that check or deploy recipe parts |
 
-Prompts and Python steps sit at the repo root, as in tenon-apm, named for what
-they do (`<capability>_prompt.txt`, `<capability>.py`).
+A Python step is the step's code exactly, nothing added. A message template is
+its HTML in `templates/<name>.html` with its input schema beside it as
+`<name>.schema.json`. A Workato export is never committed: it is unpacked
+elsewhere, and only the parts that are code come in.
 
 ## Shared assets stay in tenon-apm
 
@@ -104,11 +108,17 @@ vendors go wherever that GC's records live.
 
 ## Validation
 
-There is no automated test yet. When a Python step lands, add its tests under
-`tests/` with a fixture built in memory, and pin CI to Python 3.9 as tenon-apm
-does. Don't add CI before there is something for it to run. Never claim a
-recipe part is "tested" or "working" from local checks alone; the accurate
-phrasing is "checks pass, needs testing in Workato."
+```
+python3 tests/test_credit_card.py   # statement parser, open items, finance package grouping
+```
+
+Each test builds its fixture in memory and exits non-zero on failure;
+`.github/workflows/tests.yml` runs it on Python 3.9 with no openpyxl, the
+fallback Workato may take. A `KNOWN GAP` check pins behaviour that is wrong
+today; when the fix lands it fails, and is turned around. Sabotage a rule to
+prove its check fails before relying on it. Never claim a recipe part is
+"tested" or "working" from local checks alone; the accurate phrasing is
+"checks pass, needs testing in Workato."
 
 ## Working style
 

@@ -1,0 +1,48 @@
+<div style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #222; max-width: 800px;">
+  <h2 style="margin: 0 0 4px 0;">Credit Card Reconciliation Package</h2>
+  <p style="margin: 0 0 16px 0; color: #555;">
+    Month: <strong>{{receipt_month}}</strong> &nbsp;|&nbsp;
+    Project: <strong>{{project_code}}</strong> &nbsp;|&nbsp;
+    Version <strong>{{version}}</strong> &nbsp;|&nbsp;
+    Generated {{generated_date}}
+  </p>
+
+  <h3 style="margin: 16px 0 6px 0;">Totals</h3>
+  <table style="border-collapse: collapse; width: 100%;" cellpadding="6">
+    <tr style="background: #f2f2f2; text-align: left;">
+      <th style="border: 1px solid #ccc;">&nbsp;</th>
+      <th style="border: 1px solid #ccc;">Transactions</th>
+      <th style="border: 1px solid #ccc; text-align: right;">Amount</th>
+    </tr>
+    <tr>
+      <td style="border: 1px solid #ccc;">New in this version</td>
+      <td style="border: 1px solid #ccc;">{{new_count}}</td>
+      <td style="border: 1px solid #ccc; text-align: right;">{{new_total}}</td>
+    </tr>
+    <tr>
+      <td style="border: 1px solid #ccc;">Previously sent</td>
+      <td style="border: 1px solid #ccc;">{{previous_count}}</td>
+      <td style="border: 1px solid #ccc; text-align: right;">{{previous_total}}</td>
+    </tr>
+    <tr style="font-weight: bold; background: #fafafa;">
+      <td style="border: 1px solid #ccc;">Package total</td>
+      <td style="border: 1px solid #ccc;">{{included_count}}</td>
+      <td style="border: 1px solid #ccc; text-align: right;">{{included_total}}</td>
+    </tr>
+  </table>
+
+  <h3 style="margin: 16px 0 6px 0;">Totals by cost code</h3>
+  {{cost_code_totals_html}}
+
+  <h3 style="margin: 16px 0 6px 0;">What changed in this version</h3>
+  {{changes_html}}
+
+  <h3 style="margin: 16px 0 6px 0;">All transactions</h3>
+  {{transactions_html}}
+
+  <h3 style="margin: 16px 0 6px 0;">Receipts not included</h3>
+  <p style="margin: 0 0 6px 0; color: #555;">Left out of this package. They will be included once a usable file is received.</p>
+  {{flagged_html}}
+
+  <p style="margin-top: 20px; color: #777; font-size: 12px;">Backup receipts follow this page.</p>
+</div>
