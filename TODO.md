@@ -9,18 +9,20 @@ Findings about a GC's own vendors and invoices do not go here.
 ## 1. Credit card coding: wrong in production now
 
 Numbers are the findings in `design/credit-card-coding.md`, which has the detail.
-Whether the project is live, and whether it runs on the APM mailbox, is not known
-from the export — check first.
+The fixes that block testing, with editor steps, are in the design record's
+"Getting it running".
 
-- [ ] **Is the intake on the APM mailbox in a live workspace?** (finding 6) If so,
-      every APM email's attachments are being AI-classified, and a PDF read as a
-      receipt can draw a "no matching card transaction" email. Stop or filter it
-      before anything else.
+- [ ] **Separate credit card mail from APM's on the APM mailbox** (finding 6) — an
+      Outlook rule to a `Credit Cards` folder, the intake watching only that.
+      Testing steps 1-3 in the design record, before switching anything on.
+- [ ] **Own mailbox for credit card coding** — decided for later; until then the
+      folder rule above is what keeps APM's mail out.
 - [ ] **Digest emails are a blank finance cover** (1) — RCP-002 steps 12/18.
 - [ ] **FNC-001's matched / no-match emails are a blank Charge Form** (2) — steps 13/18.
 - [ ] **FNC-002 does not copy coding to the charge** (3) — step 15; also decide
       how a later edit of a Receipt's coding reaches its Transaction.
-- [ ] **Cover page HTML escaped?** (4) — look at one sent package; `{{{ }}}` if so.
+- [ ] **Paste the cover template** (4) — `templates/finance_package_cover.html` now
+      prints its tables with `{{{ }}}`.
 - [ ] **Image receipts dropped** (5) — convert to PDF before FNC-001, and have the
       intake act on a `failed` result.
 

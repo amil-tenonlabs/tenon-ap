@@ -145,6 +145,56 @@ None is fixed. Most live in recipe steps rather than in the repo's files.
 - `cardholder_email` on Transactions is never written; the digest resolves the address
   each run through FNC-003.
 
+## Getting it running: testing on the APM mailbox
+
+Decided by the owner (2026-11-04): testing runs on the APM mailbox; the project gets its own
+mailbox later. Nothing in it calls ACC, so it needs no SSA until it does. These are the
+fixes that block a useful test, in order; findings 7-15 wait. Steps are numbered as the
+editor shows them in the 2026-11-04 export.
+
+**Before switching anything on**
+
+1. **Keep the two products out of each other's mail** (finding 6). In Outlook on the APM
+   mailbox, add a rule: subject contains `[CC]` → move to a new folder `Credit Cards`.
+   In Email Intake, set the New email trigger's folder to `Credit Cards`. A rule runs on
+   delivery, so APM's own recipes, watching the inbox, never see these emails and this
+   recipe never sees APM's. If the trigger offers no folder, add a trigger condition
+   instead — subject contains `[CC]` — and accept that APM still sees the test emails.
+2. **Send finance mail to yourself.** RCP-003 step 34 and RCP-002 step 19 have a client's
+   finance address typed in. Put your own in for testing; an account property
+   `CC_FINANCE_EMAIL` replaces it before a client.
+3. **Fill Card Holders** with each test cardholder's name exactly as the statement file
+   name starts, and their email.
+
+**Fix**
+
+4. **Digest emails** (finding 1). In RCP-002 delete steps 12 and 18 (the template
+   renders). Step 13's Content, in formula mode, with the loop's `items` pill:
+   `'<p>These card charges need a receipt or coding:</p><table border="1" cellpadding="4" style="border-collapse:collapse"><tr><th>Date</th><th>Merchant</th><th>Amount</th><th>Missing</th></tr>' + items.format_map('<tr><td>%{transaction_date}</td><td>%{merchant}</td><td>%{amount}</td><td>%{missing_summary}</td></tr>').join + '</table><p>Reply with the receipt attached and the project, cost code and reason in the email.</p>'`.
+   Step 19 the same over the `finance_fallback_items` list pill, with a first column for
+   `%{cardholder_name}`. Start step 13's subject with `[CC] ` so a reply reaches the
+   `Credit Cards` folder.
+5. **FNC-001's two emails** (finding 2). Delete steps 13 and 18. Give steps 14 and 19
+   the inline HTML FNC-002 steps 17 and 23 already use, mapping the pills to step 3's
+   parsed `receipt_number`, `merchant`, `receipt_date`, `amount`, `currency`, and for
+   the no-match month step 4's `receipt_month`.
+6. **FNC-002 copies coding to the charge** (finding 3). Step 15 (update Transactions):
+   add `project_code`, `cost_code` and `reason`, each from the receipt loop's (step 6)
+   field of the same name — as FNC-001 step 12 does.
+7. **Cover page** (finding 4). Paste `templates/finance_package_cover.html` into the
+   Finance Package Cover template: its four tables now print with `{{{ }}}`.
+
+**How to test**
+
+- Email receipts as **PDFs** with `[CC]` in the subject and the coding in the body —
+  `Project: …  Cost code: …  Reason: …`. Phone photos are dropped until finding 5 is
+  fixed, and there is no way yet to add coding by reply.
+- Name the statement `<CARDHOLDER NAME>_<masked card>_<number>_<YYYYMMDD>.xlsx`, e.g.
+  `PAT SAMPLE_4111xxxxxxxx1234_1_20261105.xlsx`, and send it the same way.
+- Send a receipt before its statement and one after: the first is matched by FNC-002,
+  the second by FNC-001, and each charge should end up coded.
+- Run RCP-002 and RCP-003 by hand from the editor rather than waiting for 08:00 UTC.
+
 ## Open decisions
 
 - Fix in place, in the order above, or rebuild on the AP design (Claude, ACC, own mailbox).
