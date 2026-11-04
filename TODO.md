@@ -42,8 +42,8 @@ The fixes that block testing, with editor steps, are in the design record's
       ask for a "project code"; say a project is a job name or number, and the reason
       is the purpose of the purchase.
 - [ ] **Image receipts dropped** (5) — the fix is built in the repo: images converted to
-      PDF and every receipt read by Claude. Workato side: design record, "Reading receipts
-      with Claude", steps 1-4.
+      PDF only for HEIC and TIFF, every receipt read by AI by Workato's Analyze image.
+      Workato side: design record, "Reading receipts with AI by Workato", steps 1-3.
 - [ ] **Build coding after the receipt** — replies, the coding sheet, history and
       5-minute batched email, decided 2026-11-04 and built in the repo; the Workato
       side is the design record's "Coding after the receipt", steps 1-8, in order.
