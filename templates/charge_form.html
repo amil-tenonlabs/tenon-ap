@@ -1,0 +1,77 @@
+<html>
+<head>
+<style>
+  body { margin: 0; padding: 0; background: #ffffff; font-family: Arial, Helvetica, sans-serif; color: #000000; }
+  .page { width: 612px; margin: 0 auto; padding: 48px 40px; }
+  .title { text-align: center; font-size: 18px; text-decoration: underline; line-height: 1.7; margin: 0 0 20px 0; font-weight: normal; }
+  .instruction { text-align: center; font-size: 10px; margin: 0 0 28px 0; }
+  .fields { width: 100%; border-collapse: collapse; }
+  .fields td { padding: 26px 0 3px 0; font-size: 12px; vertical-align: bottom; }
+  .label { width: 190px; }
+  .value { border-bottom: 1px solid #000000; width: 240px; }
+  .value span { display: block; padding-left: 16px; min-height: 14px; }
+  .spacer { width: auto; }
+  .footer { text-align: center; font-size: 10px; line-height: 1.8; margin-top: 30px; }
+</style>
+</head>
+<body>
+  <div class="page">
+    <p class="title">VISA (BANK OF AMERICA) CHARGE FORM</p>
+    <p class="instruction">MUST FILL OUT THIS FORM EVERY TIME YOU CHARGE AN ITEM ON A CARD.</p>
+
+    <table class="fields" role="presentation">
+      <tr>
+        <td class="label">DATE OF PURCHASE:</td>
+        <td class="value"><span>{{date_of_purchase}}</span></td>
+        <td class="spacer"></td>
+      </tr>
+      <tr>
+        <td class="label">VENDOR:</td>
+        <td class="value"><span>{{vendor}}</span></td>
+        <td class="spacer"></td>
+      </tr>
+      <tr>
+        <td class="label">CHARGE AMOUNT:</td>
+        <td class="value"><span>{{charge_amount}}</span></td>
+        <td class="spacer"></td>
+      </tr>
+      <tr>
+        <td class="label">REASON FOR CHARGE:</td>
+        <td class="value"><span>{{reason_for_charge}}</span></td>
+        <td class="spacer"></td>
+      </tr>
+      <tr>
+        <td class="label">JOB NAME:</td>
+        <td class="value"><span>{{job_name}}</span></td>
+        <td class="spacer"></td>
+      </tr>
+      <tr>
+        <td class="label">COST CODE / WORK ORDER #</td>
+        <td class="value"><span>{{cost_code_work_order}}</span></td>
+        <td class="spacer"></td>
+      </tr>
+      <tr>
+        <td class="label">PURCHASED BY/SIGNATURE:</td>
+        <td class="value"><span>{{purchased_by}}</span></td>
+        <td class="spacer"></td>
+      </tr>
+      <tr>
+        <td class="label">CARD HOLDER:</td>
+        <td class="value"><span>{{card_holder}}</span></td>
+        <td class="spacer"></td>
+      </tr>
+      <tr>
+        <td class="label">RECEIPT INCLUDED:</td>
+        <td class="value"><span>{{#receipt_included}}Yes{{/receipt_included}}{{^receipt_included}}No{{/receipt_included}}</span></td>
+        <td class="spacer"></td>
+      </tr>
+    </table>
+
+    <div class="footer">
+      PLEASE STAPLE A COPY OF THE PURCHASE RECEIPT TO THIS FORM<br>
+      AND<br>
+      FILE IN THE APPROPRIATE MARKED FOLDER BY CARD HOLDER IN THE FINANCE DEPT.
+    </div>
+  </div>
+</body>
+</html>
