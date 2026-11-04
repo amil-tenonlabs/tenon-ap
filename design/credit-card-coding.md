@@ -452,6 +452,75 @@ section; checks pass, needs testing in Workato.
    `sent_in_package`, `package_version_sent` and `sent_date` values. Step 28's inputs are
    unchanged; the items it receives now carry `table`, `cost_code` and `split_note`.
 
+## Reading receipts with Claude: photos, scans and PDFs
+
+Proposed 2026-11-04 to fix finding 5; built in the repo, not in Workato. Checks pass
+(`tests/test_read_receipt.py`), needs testing in Workato.
+
+**Why this way.** The Claude connector in tenon-apm sends a file only as a `document`
+block, which takes a PDF and not a JPG or PNG; Claude reads a PDF's pages as images, so a
+photo converted to a one-page PDF is read as well as the photo itself. PDF tools already
+converts images in RCP-003. Nothing in the shared connector changes. Claude reads every
+receipt, text PDF or photo, so there is one path, and it reads the email's coding and splits
+in the same call. Workato's OpenAI step stays only as the intake's classifier for non-image
+files.
+
+**The rules**
+
+- An attachment that is an image (jpg, jpeg, png, gif, webp, heic, heif, tif, tiff) and not
+  inline is a receipt candidate: converted to PDF and sent straight to FNC-001, never through
+  the classifier, which sees only a file name. Inline images are signatures and logos and are
+  skipped.
+- Claude returns one JSON object (`read_receipt_prompt.txt`); `read_receipt.py` checks it. A
+  reply that is not that object logs nothing. `is_receipt` false (a logo, a photo of
+  something else) logs nothing and tells the sender what it saw. A total that cannot be read
+  is blank, never zero, and the sender is asked for a clearer copy; the receipt is still
+  logged with its file.
+- The amount is the final total charged - tax, tip and fees in, discounts out; a handwritten
+  tip and total on a restaurant slip win over the printed subtotal.
+- A year that is not printed is left blank, not guessed.
+- The email body is data, not instructions: the prompt says so, as APM's classifier does.
+
+**Build**
+
+1. **Claude connection** in the Credit Card Coding project, or use APM's: the Claude Platform
+   on AWS connector from tenon-apm. Per tenon-apm's CLAUDE.md, a client's connections use the
+   Anthropic workspace prod-tenon uploads to; this call uploads nothing, so any workspace
+   works.
+2. **Email Intake.** Add an **Else if** to step 5 (the statement-file IF), above its Else:
+   - Condition: `['jpg','jpeg','png','gif','webp','heic','heif','tif','tiff'].include?(Name.to_s.downcase.split('.').last)`
+     is true, AND `IsInline` is not true.
+   - PDF tools **Convert to PDF**: file format `image`; source file =
+     `ContentBytes.to_s.gsub(/\s/, '').match?(/\A[A-Za-z0-9+\/]+={0,2}\z/) ? ContentBytes.to_s.gsub(/\s/, '').decode_base64 : ContentBytes`;
+     output file name = `Name.to_s.sub(/\.[^.]+\z/, '')`.
+   - Call FNC-001 as step 18 does, but `attachment_content` = the converted file's contents
+     `.encode_base64` and `attachment_name` = `Name.to_s.sub(/\.[^.]+\z/, '') + '.pdf'`.
+   - Wrap the conversion in a Try; on error, email the sender "[CC] Could not read " + Name
+     + " - please send it as a PDF or a JPG".
+   - Step 17's receipt condition gains AND the name ends `.pdf`, so a file the classifier
+     calls a receipt but no reader can open is skipped.
+3. **FNC-001.** Insert, as the first steps inside the Try:
+   - Claude **Send message**: System prompt = `read_receipt_prompt.txt` pasted whole (it has
+     no datapills); User message = `FILE NAME: ` + `attachment_name`, a blank line,
+     `EMAIL BODY:`, then `email_body` (or `(none)` when blank); Document (base64) = the
+     trigger's `attachment_content`; media type `application/pdf`; title = `attachment_name`;
+     Max tokens 1024. Model override optional - a larger model reads faded photos better.
+   - Execute Python code, `read_receipt.py`: input `response_text` = the Claude step's
+     Response text; outputs `ok`, `is_receipt` (boolean), `merchant`, `receipt_date`,
+     `receipt_month`, `amount` (number), `currency`, `card_last_4`, `receipt_number`,
+     `project_code`, `cost_code`, `reason`, `split_text`, `notes`, `problems`.
+   - IF `ok` is not true OR `is_receipt` is not true: email the sender "[CC] Not read as a
+     receipt: " + `attachment_name`, body `notes` or `problems`; Return result `status`
+     `not_receipt`, `matched` false. (Once Notifications exists, queue a `problem` instead.)
+   - Re-point every pill that read the OpenAI step to the Python step: step 5's nine fields
+     (receipt_number, receipt_date in its formula, merchant, amount, currency, card_last4 in
+     its formula, project_code, cost_code, reason) and step 6's amount filter. Then delete
+     the old extract-text and OpenAI steps; Workato refuses if anything still reads them.
+   - IF `problems` is present after logging: email the sender "[CC] Receipt received -
+     please check " + `attachment_name` with `problems`. It is still matched as usual.
+4. Test with one phone photo of a receipt, one scanned PDF and one email signature image:
+   two logged and one skipped.
+
 ## Open decisions
 
 - Fix in place, in the order above, or rebuild on the AP design (Claude, ACC, own mailbox).
