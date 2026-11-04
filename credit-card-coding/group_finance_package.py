@@ -1,5 +1,6 @@
 import json
 import re
+from datetime import date
 
 
 def _norm(v):
@@ -43,6 +44,8 @@ def main(input):
     groups = {}
     log = []
     skipped = 0
+    held_uncoded = 0
+    today = _norm(input.get('today'))[:10] or date.today().isoformat()
     new_count = 0
     for t in txns:
         if t.get('matched') is not True and str(t.get('matched')).lower() != 'true':
@@ -55,8 +58,20 @@ def main(input):
             skipped += 1
             log.append('Transaction %s: %s - SKIPPED (matched receipt %s not found or has no receipt_month; stays pending)' % (tid, 'PREVIOUSLY SENT' if is_sent else 'NOT YET SENT', rid or '-'))
             continue
+        if not is_sent:
+            blank = [f for f in ('project_code', 'cost_code', 'reason') if not _norm(t.get(f))]
+            source = _norm(t.get('coding_source')).lower()
+            coded_on = _norm(t.get('history_coded_on'))[:10]
+            if blank:
+                held_uncoded += 1
+                log.append('Transaction %s: NOT YET SENT - HELD (no %s; stays pending until coded)' % (tid, ', '.join(blank)))
+                continue
+            if source == 'history' and (not coded_on or coded_on >= today):
+                held_uncoded += 1
+                log.append('Transaction %s: NOT YET SENT - HELD (coded from history on %s; sent once a digest has shown it)' % (tid, coded_on or 'an unknown date'))
+                continue
         month = rec['receipt_month']
-        code = rec['project_code'] or 'Unassigned'
+        code = _norm(t.get('project_code')) or rec['project_code'] or 'Unassigned'
         key = month + '|' + code
         g = groups.setdefault(key, {'receipt_month': month, 'project_code': code, 'max_ver': 0, 'items': [], 'receipt_ids': []})
         item = {
@@ -114,4 +129,4 @@ def main(input):
             'new_transactions': [{k: i[k] for k in ('record_id', 'transaction_id', 'transaction_date', 'merchant', 'amount', 'receipt_id')} for i in new_items],
         })
 
-    return {'new_count': new_count, 'skipped_count': skipped, 'transaction_log': '\n'.join(log), 'groups': out}
+    return {'new_count': new_count, 'skipped_count': skipped, 'transaction_log': '\n'.join(log), 'groups': out, 'held_uncoded_count': held_uncoded}

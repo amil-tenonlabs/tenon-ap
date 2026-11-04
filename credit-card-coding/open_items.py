@@ -38,6 +38,10 @@ def main(input):
             "missing_fields": ", ".join(missing),
             "missing_summary": ", ".join(parts),
             "previously_sent": r.get("sent_in_package") is True,
+            "suggestion": r.get("suggestion") or "",
+            "suggested_project_code": r.get("suggested_project_code") or "",
+            "suggested_cost_code": r.get("suggested_cost_code") or "",
+            "suggested_reason": r.get("suggested_reason") or "",
         }
         key = _norm(r.get("cardholder_name"))
         g = groups.setdefault(key, {

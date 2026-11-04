@@ -27,3 +27,6 @@ jobs:
 
       - name: Credit card coding
         run: python3 tests/test_credit_card.py
+
+      - name: Coding after the receipt
+        run: python3 tests/test_coding.py

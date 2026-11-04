@@ -222,6 +222,177 @@ renumbers every step below it, so work through each recipe from its last change 
   the second by FNC-001, and each charge should end up coded.
 - Run RCP-002 and RCP-003 by hand from the editor rather than waiting for 08:00 UTC.
 
+## Coding after the receipt: replies, spreadsheets, history and batched email
+
+Decided by the owner (2026-11-04): a charge reaches finance only once it is coded; coding
+can arrive by reply or by spreadsheet as well as with the receipt; a cardholder's own
+consistent history codes a charge without asking; and people get one email per burst of
+activity, never one per receipt. **Built in the repo, not yet in Workato.** Checks pass
+(`tests/test_coding.py`, `tests/test_credit_card.py`); needs testing in Workato.
+
+### The rules
+
+- **Coding lives on the charge.** Transactions' `project_code`, `cost_code` and `reason`
+  are the record; the package groups by the charge's project, the receipt's only as a
+  fallback. A field is filled, never blanked: every update keeps what is there when it
+  brings nothing for a field.
+- **Every item has a reference**, printed on every email and spreadsheet row: a charge
+  is its `transaction_id` (`8678-20261029-606.00-14`), a receipt with no charge yet is
+  `R-` + its Record ID.
+- **A reply codes what it names.** Only the reply's own text counts, never the quoted
+  email below it. One line per item, `Ref: project, cost code, reason`, codes many at
+  once; the reason keeps any commas of its own. A reply in a thread about one item can
+  say it in words ("Project: Perry", or "code this to Perry 01-750", read by the AI). Two
+  references and no coded line is asked about, never guessed.
+- **The spreadsheet** is the digest's attachment: one row per open item, the coding
+  columns pre-filled with any suggestion and shaded to fill in. Sent back, every row with
+  coding is applied - returning it unchanged confirms its suggestions - and a row whose
+  reference is not one is reported by its row number.
+- **History.** When a charge has blank coding and the cardholder's two most recent
+  explicitly coded charges at the same merchant agree, that coding fills the blanks,
+  marked `coding_source` `history` with `history_coded_on`. Coding applied from history
+  never counts as evidence for more, so a guess cannot confirm itself. Anything less
+  certain is a suggestion only. Merchants compare on their first two words, filler and
+  state codes dropped ("DOCUSIGN INC. 800-3799973 DE" is "DocuSign Inc").
+- **Finance gets coded charges only.** A new charge with any of the three blank is held
+  (`held_uncoded_count`, and a line in the log). History coding waits a day, so the
+  cardholder has seen it in one email before it goes.
+- **Email in bursts.** Recipes queue a row in Notifications instead of emailing. Every 5
+  minutes one recipe sends each person one email holding everything queued for them,
+  once nothing new has been queued for 5 minutes - a 10-receipt email gets one answer.
+  The daily digest stays its own email.
+
+### Repo parts
+
+| repo file | Workato step |
+| --- | --- |
+| `credit-card-coding/read_coding_reply.py` | Email Intake, reply branch (new) |
+| `credit-card-coding/read_coding_sheet.py` | Email Intake, spreadsheet branch (new) |
+| `credit-card-coding/suggest_coding.py` | RCP-002, after its Search (new) |
+| `credit-card-coding/build_coding_sheet.py` | RCP-002, inside the cardholder loop (new) |
+| `credit-card-coding/batch_notifications.py` | Send Queued Notifications (new recipe) |
+| `credit-card-coding/open_items.py` | RCP-002 step 4 (changed: carries suggestions) |
+| `credit-card-coding/group_finance_package.py` | RCP-003 step 6 (changed: holds uncoded) |
+| `credit-card-coding/extract_receipt_fields.json` | FNC-001 step 4 (changed: field descriptions, file name) |
+
+### Build steps
+
+Steps are numbered as the editor showed them in the 2026-11-04 (second) export. Build in
+this order: each part works before the next is switched on.
+
+**1. Data tables**
+
+- Transactions: add `coding_source` (short text) and `history_coded_on` (date).
+- New table **Notifications**: `recipient`, `kind`, `ref`, `merchant`, `date`,
+  `currency`, `project_code`, `cost_code`, `reason` (short text), `amount` (number),
+  `note` (long text), `sent` (boolean), `sent_at` (date-time). `kind` is one of
+  `received`, `matched`, `no_match`, `coded`, `history`, `complete`, `problem`.
+
+**2. Send Queued Notifications** (new recipe; nothing is queued yet, so it sends nothing)
+
+1. Trigger: Scheduler, every 5 minutes.
+2. Search records, Notifications, `sent` is false, limit 1000, field name to value.
+3. Execute Python code, `batch_notifications.py`; inputs `notifications_json` =
+   step 2's Records `.to_json`, `now` = `now.iso8601`, `quiet_minutes` = `5`; outputs
+   `batches` (list: `recipient`, `subject`, `html`, `summary`, `record_ids` list of
+   strings, `count`), `batch_count`, `waiting_count`.
+4. Repeat for each `batches`: Outlook Send email, To `recipient`, Subject `subject`,
+   Content `html` (HTML); then Update records batch, Notifications, source
+   `record_ids`, Record ID = the current id, `sent` true, `sent_at` now.
+
+Rows are marked sent only after their email goes, so a failed send is retried on the next
+run.
+
+**3. FNC-004 Apply Coding** (new callable recipe)
+
+Input: `updates` (list: `ref`, `ref_type`, `project_code`, `cost_code`, `reason`),
+`source` (`email`, `reply`, `sheet` or `history`), `notify_email`. For each update:
+
+- `ref_type` `transaction`: Search Transactions, `transaction_id` = `ref`, limit 1. None →
+  queue a `problem` ("Ref … was not found") to `notify_email`; next. Else Update the
+  Transactions record: each field `= [update field].presence || [record field]`;
+  `coding_source` = `source`; `history_coded_on` = `source == 'history' ? today :
+  [record history_coded_on]`. If the record's `matched_receipt_id` is present, Update
+  that Receipts record with the same three merged values.
+- `ref_type` `receipt`: Get the Receipts record by Record ID = `ref`. None → `problem`.
+  Else update it the same way; if its `matched_transaction_id` is present, Search
+  Transactions by it and update that charge with the merged values and `coding_source`.
+- Queue a Notifications row: `kind` = `source == 'history' ? 'history' : 'coded'`,
+  `recipient` = `notify_email`, `ref`, and merchant, date, amount and the merged coding
+  from the record.
+
+Return `applied` and `not_found` counts.
+
+**4. Email Intake**
+
+1. Trigger condition: subject **contains** `[CC]` (not starts with), and remove "has
+   attachments" - a reply with only text must come in.
+2. First step inside the Try: Execute Python code, `read_coding_reply.py`, `body` = the
+   body with tags stripped (as step 18's `email_body` formula); outputs `ref_count`,
+   `updates` (list as FNC-004's), `update_count`, `needs_ai`, `single_ref`,
+   `single_ref_type`, `new_text`, `problems`.
+3. IF `ref_count` > 0:
+   - IF `needs_ai`: OpenAI parse text on `new_text` with three fields - `project_code`,
+     `cost_code`, `reason`, described as in `extract_receipt_fields.json` - then call
+     FNC-004 with one update: `single_ref`, `single_ref_type` and the three parsed
+     fields.
+   - IF `update_count` > 0: call FNC-004 with `updates`.
+   - Each FNC-004 call: `source` `reply`, `notify_email` = the sender.
+   - IF `problems` present: queue a `problem` row to the sender with `note` = `problems`.
+4. The attachments loop only when the email has attachments (an IF around it).
+5. Inside it, before the AI classifier, IF the name ends `.xlsx` (and is not a
+   statement): Execute Python code, `read_coding_sheet.py` (`file_content_base64` as the
+   statement step takes it); IF `is_coding_sheet`: FNC-004 with `updates`, `source`
+   `sheet`; queue a `problem` if `problems`; skip the classifier for this file.
+6. The receipt branch: add AND the name ends `.pdf`, so an image or logo is skipped
+   rather than failing (finding 5 stays open for photos).
+
+**5. FNC-001 Process Receipt**
+
+- Step 4 (AI parse): replace the three coding field descriptions with
+  `extract_receipt_fields.json`'s, and in the text formula insert the
+  `=== THIS RECEIPT'S FILE NAME ===` section before the email body, with the trigger's
+  `attachment_name` - so one email can code several receipts differently.
+- Step 14 (matched email) → Create record, Notifications, `kind` `matched`, recipient the
+  sender, `ref` = the transaction id (step 15's formula), merchant, date, amount,
+  currency and coding from step 5.
+- Step 18 (no-match email) → the same with `kind` `no_match`, `ref` = `'R-' + ` step 5's
+  Record ID, `note` = "Not on the " + receipt_month + " statement".
+- Before step 21 (no statement yet): queue `kind` `received`, `ref` `R-` + Record ID.
+
+**6. FNC-002 and Item Complete**
+
+- FNC-002 steps 18 and 24 → Notifications rows as FNC-001's, from the receipt loop.
+- Item Complete step 16 → a `complete` row. The Charge Form stops being emailed; whether
+  it belongs in the finance package instead is open.
+
+**7. RCP-002 Daily digest**
+
+1. After step 3 (Search Transactions): Execute Python code, `suggest_coding.py`,
+   `records_json` = step 3's Records `.to_json`; outputs `apply` (list as FNC-004's
+   updates, plus `cardholder_name`), `apply_count`, `suggested_count`, `records_json`.
+2. IF `apply_count` > 0: Repeat for each `apply` → FNC-003 for the cardholder's email →
+   FNC-004 with that one update, `source` `history`, `notify_email` the email (finance
+   when unresolved).
+3. Step 4 (open items): its `records_json` becomes step 1's `records_json`. Paste
+   `open_items.py`; append to `groups` → `items`: `suggestion`, `suggested_project_code`,
+   `suggested_cost_code`, `suggested_reason`.
+4. Inside the cardholder loop, before the email: Execute Python code,
+   `build_coding_sheet.py`, `items_json` = the loop's `items` `.to_json`, `label` = its
+   `cardholder_name`, `today` = `today.strftime('%Y-%m-%d')`; outputs `file_name`,
+   `file_base64`, `row_count`. Attach it to the email (file name, contents
+   `file_base64.decode_base64`).
+5. The email's table gains a Ref column (`%{transaction_id}`) and a Suggested column
+   (`%{suggestion}`), and its closing line reads: "Reply with `Ref: project, cost code,
+   reason` per line, or fill in the attached sheet and send it back, with [CC] in the
+   subject."
+
+**8. RCP-003 Finance package**
+
+- Step 6: paste `group_finance_package.py`; add an input `today` =
+  `today.strftime('%Y-%m-%d')`; append the output `held_uncoded_count` and add it to
+  step 7's log line.
+
 ## Open decisions
 
 - Fix in place, in the order above, or rebuild on the AP design (Claude, ACC, own mailbox).

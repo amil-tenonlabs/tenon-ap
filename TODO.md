@@ -44,6 +44,12 @@ The fixes that block testing, with editor steps, are in the design record's
 - [ ] **Image receipts dropped** (5) — convert to PDF before FNC-001, and have the
       intake act on a `failed` result.
 
+- [ ] **Build coding after the receipt** — replies, the coding sheet, history and
+      5-minute batched email, decided 2026-11-04 and built in the repo; the Workato
+      side is the design record's "Coding after the receipt", steps 1-8, in order.
+- [ ] **Charge Form once Item Complete stops emailing it** — attach it to the finance
+      package, or drop it. Decide before step 6 of that build.
+
 ## 2. Credit card coding: wrong in some cases
 
 - [ ] **No-match uses the calendar month and any card's statement** (7).
