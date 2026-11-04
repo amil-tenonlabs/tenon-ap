@@ -12,25 +12,35 @@ Numbers are the findings in `design/credit-card-coding.md`, which has the detail
 The fixes that block testing, with editor steps, are in the design record's
 "Getting it running".
 
-- [ ] **Separate credit card mail from APM's on the APM mailbox** (finding 6) — `[CC]` in
-      every subject, an Outlook rule moving it to a `Credit Cards` folder, the
-      intake watching only that.
-      Testing steps 1-3 in the design record, before switching anything on.
+- [ ] **Intake's trigger condition misses replies** (finding 6) — it requires the subject
+      to *start with* `[CC]` *(export 11-04)*, so "RE: [CC] …" never reaches the
+      intake. Use *contains*. There is no folder rule yet, so APM's recipes still see
+      every `[CC]` email.
 - [ ] **Backstop in APM's `mailroom`** — a trigger condition skipping mail with
-      `[CC]` in the subject, in case the folder rule is off. An
-      APM recipe change; confirm first that its trigger watches the inbox only.
+      `[CC]` in the subject: with no folder rule, APM sees every
+      credit card email. An APM recipe change; confirm first that its trigger watches the inbox only.
 - [ ] **Own mailbox for credit card coding** — decided for later; until then the
-      folder rule above is what keeps APM's mail out.
+      `[CC]` trigger condition is what keeps APM's mail out of the intake.
 - [ ] **Test the new email bodies** (1, 2) — the digest and FNC-001 now build their
       emails inline (`format_map` in the digest), done in the editor 2026-11-04. Check
       one of each arrives readable, and that replies with `[CC]` reach the folder.
-- [ ] **Deploy the statement parser fix** (16) — packed PDF-converted pages were
-      dropped; paste, append three outputs, add the total-check alert. Design
-      record, fix 8. Then re-send the October statement that lost its DocuSign charge.
-- [ ] **FNC-002 does not copy coding to the charge** (3) — step 16; also decide
-      how a later edit of a Receipt's coding reaches its Transaction.
-- [ ] **Paste the cover template** (4) — `templates/finance_package_cover.html` now
-      prints its tables with `{{{ }}}`.
+- [ ] **Alert on `total_warning`** (16) — the parser and its three outputs are deployed
+      *(export 11-04)*; the IF after step 9 that logs and emails a total mismatch is
+      not. Design record, fix 8.
+- [ ] **A receipt that should have matched did not** — first live test *(export 11-04)*:
+      a receipt and its charge agreed on amount, card and merchant, the charge already
+      loaded nine minutes earlier, yet FNC-001 sent "no matching card transaction".
+      The match condition reads correctly, so check FNC-001 step 6's output in that
+      job: did the search on amount and `matched` is false return the charge? Re-sending
+      the statement runs FNC-002 over the same receipt, a second test of the search.
+- [ ] **Card Holders names must match the statement's spacing** — FNC-003 compares
+      names lower-cased with runs of spaces collapsed, so a name entered without its
+      space never resolves, and the digest and Item Complete fall back to finance.
+      Either enter names as the statement prints them or compare with spaces removed.
+- [ ] **The AI step mis-files coding** — "Code this to <job> <cost code>" came back with
+      the job as `reason` and no `project_code`. FNC-001 step 4's field descriptions
+      ask for a "project code"; say a project is a job name or number, and the reason
+      is the purpose of the purchase.
 - [ ] **Image receipts dropped** (5) — convert to PDF before FNC-001, and have the
       intake act on a `failed` result.
 
