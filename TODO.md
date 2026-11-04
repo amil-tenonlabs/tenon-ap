@@ -16,6 +16,9 @@ The fixes that block testing, with editor steps, are in the design record's
       `apm+cc@…`, an Outlook rule moving it (or a `[CC]` subject) to a `Credit
       Cards` folder, the intake watching only that.
       Testing steps 1-3 in the design record, before switching anything on.
+- [ ] **Backstop in APM's `mailroom`** — a trigger condition skipping mail sent to
+      `apm+cc` or with `[CC]` in the subject, in case the folder rule is off. An
+      APM recipe change; confirm first that its trigger watches the inbox only.
 - [ ] **Own mailbox for credit card coding** — decided for later; until then the
       folder rule above is what keeps APM's mail out.
 - [ ] **Digest emails are a blank finance cover** (1) — RCP-002 steps 12/18.
