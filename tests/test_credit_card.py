@@ -255,31 +255,46 @@ def open_item_checks():
 
 def finance_package_checks():
     import json
+    coded = {'project_code': 'P1', 'cost_code': 'C1', 'reason': 'site supplies'}
     txns = [
-        {'Record ID': 't1', 'transaction_id': 'T1', 'matched': True, 'sent_in_package': True,
-         'package_version_sent': '2', 'matched_receipt_id': 'r1', 'amount': 10},
-        {'Record ID': 't2', 'transaction_id': 'T2', 'matched': True, 'sent_in_package': False,
-         'matched_receipt_id': 'r2', 'amount': 5.5},
-        {'Record ID': 't3', 'transaction_id': 'T3', 'matched': True, 'sent_in_package': False,
-         'matched_receipt_id': 'r3', 'amount': 7},
-        {'Record ID': 't4', 'transaction_id': 'T4', 'matched': True, 'sent_in_package': False,
-         'matched_receipt_id': 'missing', 'amount': 1},
-        {'Record ID': 't5', 'transaction_id': 'T5', 'matched': False, 'matched_receipt_id': '', 'amount': 1},
+        dict(coded, **{'Record ID': 't1', 'transaction_id': 'T1', 'matched': True, 'sent_in_package': True,
+                       'package_version_sent': '2', 'matched_receipt_id': 'r1', 'amount': 10}),
+        dict(coded, **{'Record ID': 't2', 'transaction_id': 'T2', 'matched': True, 'sent_in_package': False,
+                       'matched_receipt_id': 'r2', 'amount': 5.5}),
+        dict(coded, **{'Record ID': 't3', 'transaction_id': 'T3', 'matched': True, 'sent_in_package': False,
+                       'matched_receipt_id': 'r3', 'amount': 7, 'project_code': 'P2'}),
+        dict(coded, **{'Record ID': 't4', 'transaction_id': 'T4', 'matched': True, 'sent_in_package': False,
+                       'matched_receipt_id': 'missing', 'amount': 1}),
+        dict(coded, **{'Record ID': 't5', 'transaction_id': 'T5', 'matched': False, 'matched_receipt_id': '', 'amount': 1}),
+        dict(coded, **{'Record ID': 't6', 'transaction_id': 'T6', 'matched': True, 'sent_in_package': False,
+                       'matched_receipt_id': 'r2', 'amount': 2, 'cost_code': ''}),
+        dict(coded, **{'Record ID': 't7', 'transaction_id': 'T7', 'matched': True, 'sent_in_package': False,
+                       'matched_receipt_id': 'r2', 'amount': 3, 'coding_source': 'history',
+                       'history_coded_on': '2027-01-10'}),
+        dict(coded, **{'Record ID': 't8', 'transaction_id': 'T8', 'matched': True, 'sent_in_package': False,
+                       'matched_receipt_id': 'r2', 'amount': 4, 'coding_source': 'history',
+                       'history_coded_on': '2027-01-09'}),
     ]
     receipts = [
         {'Record ID': 'r1', 'receipt_month': '2027-01', 'project_code': 'P1', 'receipt_number': 'R-1'},
         {'Record ID': 'r2', 'receipt_month': '2027-01', 'project_code': 'P1', 'receipt_number': 'R-2'},
         {'Record ID': 'r3', 'receipt_month': '2027-01', 'project_code': '', 'receipt_number': 'R-3'},
     ]
-    out = group_finance_package.main({'transactions_json': json.dumps(txns), 'receipts_json': json.dumps(receipts)})
+    out = group_finance_package.main({'transactions_json': json.dumps(txns), 'receipts_json': json.dumps(receipts),
+                                      'today': '2027-01-10'})
     g = {x['project_code']: x for x in out['groups']}
-    check('package: grouped by receipt month and project', set(g) == {'P1', 'Unassigned'})
+    new_ids = sorted(i['transaction_id'] for x in out['groups'] for i in x['new_transactions'])
+    check('package: grouped by receipt month and the charge\'s own project', set(g) == {'P1', 'P2'})
     check('package: next version follows the highest sent', g['P1']['version'] == 3)
     check('package: previously sent rows ride along, not counted new',
-          g['P1']['new_count'] == 1 and g['P1']['previous_count'] == 1 and g['P1']['grand_total'] == '15.50')
-    check('package: a blank project code is Unassigned, version 1', g['Unassigned']['version'] == 1)
+          g['P1']['previous_count'] == 1 and g['P1']['grand_total'] == '19.50')
+    check('package: a charge whose receipt has no project groups by the charge\'s', g['P2']['version'] == 1)
     check('package: a receipt that cannot be found is skipped, not sent', out['skipped_count'] == 1)
-    check('package: unmatched transactions never enter', out['new_count'] == 2)
+    check('package: a charge missing any coding is held back', 'T6' not in new_ids)
+    check('package: history coding applied today waits for a digest', 'T7' not in new_ids)
+    check('package: history coding from an earlier day is sent', 'T8' in new_ids)
+    check('package: exactly the coded, matched, found charges are new', new_ids == ['T2', 'T3', 'T8'])
+    check('package: held charges are counted', out['held_uncoded_count'] == 2)
 
 
 def main():

@@ -110,6 +110,7 @@ vendors go wherever that GC's records live.
 
 ```
 python3 tests/test_credit_card.py   # statement parser, open items, finance package grouping
+python3 tests/test_coding.py        # replies, the coding sheet, history, batched email
 ```
 
 Each test builds its fixture in memory and exits non-zero on failure;
