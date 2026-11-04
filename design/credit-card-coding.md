@@ -27,12 +27,12 @@ connection, from the Tenon APM project.
 
 | repo file | Workato step |
 | --- | --- |
-| `credit-card-coding/parse_statement.py` | Email Intake, step 6 (Python) |
-| `credit-card-coding/classify_attachment.json` | Email Intake, step 15 (OpenAI utility, categorise text) |
-| `credit-card-coding/extract_receipt_fields.json` | FNC-001, step 3 (OpenAI utility, parse text) |
-| `credit-card-coding/open_items.py` | RCP-002, step 3 (Python) |
-| `credit-card-coding/group_finance_package.py` | RCP-003, step 5 (Python) |
-| `credit-card-coding/split_finance_package.py` | RCP-003, step 27 (Python) |
+| `credit-card-coding/parse_statement.py` | Email Intake, step 7 (Python) |
+| `credit-card-coding/classify_attachment.json` | Email Intake, step 16 (OpenAI utility, categorise text) |
+| `credit-card-coding/extract_receipt_fields.json` | FNC-001, step 4 (OpenAI utility, parse text) |
+| `credit-card-coding/open_items.py` | RCP-002, step 4 (Python) |
+| `credit-card-coding/group_finance_package.py` | RCP-003, step 6 (Python) |
+| `credit-card-coding/split_finance_package.py` | RCP-003, step 28 (Python) |
 | `templates/finance_package_cover.html` + `.schema.json` | Message template "Finance Package Cover" |
 | `templates/charge_form.html` + `.schema.json` | Message template "Charge Form" |
 
@@ -82,16 +82,16 @@ None is fixed. Most live in recipe steps rather than in the repo's files.
 
 **Wrong output today**
 
-1. **The daily digest's email is the finance package cover, empty.** RCP-002 steps 12
-   and 18 render "Finance Package Cover" with no inputs, and steps 13 and 19 send that
+1. **The daily digest's email is the finance package cover, empty.** RCP-002 steps 13
+   and 19 render "Finance Package Cover" with no inputs, and steps 14 and 20 send that
    as the body. A cardholder asked for receipts gets a blank reconciliation-package
    page, not their list.
 2. **"Receipt matched" and "No matching card transaction found" from FNC-001 are a blank
-   Charge Form.** Steps 13 and 18 render "Charge Form" with no inputs. FNC-002 sends the
+   Charge Form.** Steps 14 and 19 render "Charge Form" with no inputs. FNC-002 sends the
    same two emails as inline HTML that does name the receipt.
 3. **A receipt matched after its statement keeps blank coding on the charge.** FNC-001
    copies project, cost code and reason to the Transaction at match time; FNC-002 step
-   15 sets `matched` and `matched_receipt_id` only. A receipt sent before the statement
+   16 sets `matched` and `matched_receipt_id` only. A receipt sent before the statement
    — the normal order — leaves its charge uncoded, and RCP-002 asks for coding the
    cardholder already gave. Nothing copies a later edit of a Receipt's coding either.
 4. **The cover page probably prints its tables as raw HTML.** It inserts four pre-built
@@ -132,7 +132,7 @@ None is fixed. Most live in recipe steps rather than in the repo's files.
 
 **Per-client values in recipe steps** (CLAUDE.md: they belong in account properties)
 
-13. Finance's address is typed into RCP-003 step 34 and RCP-002 step 19, although step
+13. Finance's address is typed into RCP-003 step 35 and RCP-002 step 20, although step
     comments say it comes from a `finance_email` property.
 14. The Charge Form names one bank's card ("VISA (BANK OF AMERICA)").
 15. The statement file-name pattern and its columns are one bank's export.
@@ -150,7 +150,8 @@ None is fixed. Most live in recipe steps rather than in the repo's files.
 Decided by the owner (2026-11-04): testing runs on the APM mailbox; the project gets its own
 mailbox later. Nothing in it calls ACC, so it needs no SSA until it does. These are the
 fixes that block a useful test, in order; findings 7-15 wait. Steps are numbered as the
-editor shows them in the 2026-11-04 export.
+editor shows them in the 2026-11-04 export, the trigger being step 1. Deleting a step
+renumbers every step below it, so work through each recipe from its last change up.
 
 **Before switching anything on**
 
@@ -169,7 +170,7 @@ editor shows them in the 2026-11-04 export.
      with `Get-OrganizationConfig | fl DisablePlusAddressInRecipients` (False is on).
    - A sender who Bccs the address leaves no tagged recipient on the message; ask
      testers to put it in To.
-2. **Send finance mail to yourself.** RCP-003 step 34 and RCP-002 step 19 have a client's
+2. **Send finance mail to yourself.** RCP-003 step 35 and RCP-002 step 20 have a client's
    finance address typed in. Put your own in for testing; an account property
    `CC_FINANCE_EMAIL` replaces it before a client.
 3. **Fill Card Holders** with each test cardholder's name exactly as the statement file
@@ -177,19 +178,19 @@ editor shows them in the 2026-11-04 export.
 
 **Fix**
 
-4. **Digest emails** (finding 1). In RCP-002 delete steps 12 and 18 (the template
-   renders). Step 13's Content, in formula mode, with the loop's `items` pill:
+4. **Digest emails** (finding 1). In RCP-002 delete steps 13 and 19 (the template
+   renders). Step 14's Content, in formula mode, with the loop's `items` pill:
    `'<p>These card charges need a receipt or coding:</p><table border="1" cellpadding="4" style="border-collapse:collapse"><tr><th>Date</th><th>Merchant</th><th>Amount</th><th>Missing</th></tr>' + items.format_map('<tr><td>%{transaction_date}</td><td>%{merchant}</td><td>%{amount}</td><td>%{missing_summary}</td></tr>').join + '</table><p>Reply with the receipt attached and the project, cost code and reason in the email.</p>'`.
-   Step 19 the same over the `finance_fallback_items` list pill, with a first column for
-   `%{cardholder_name}`. Start step 13's subject with `[CC] ` so a reply reaches the
+   Step 20 the same over the `finance_fallback_items` list pill, with a first column for
+   `%{cardholder_name}`. Start step 14's subject with `[CC] ` so a reply reaches the
    `Credit Cards` folder.
-5. **FNC-001's two emails** (finding 2). Delete steps 13 and 18. Give steps 14 and 19
-   the inline HTML FNC-002 steps 17 and 23 already use, mapping the pills to step 3's
+5. **FNC-001's two emails** (finding 2). Delete steps 14 and 19. Give steps 15 and 20
+   the inline HTML FNC-002 steps 18 and 24 already use, mapping the pills to step 4's
    parsed `receipt_number`, `merchant`, `receipt_date`, `amount`, `currency`, and for
-   the no-match month step 4's `receipt_month`.
-6. **FNC-002 copies coding to the charge** (finding 3). Step 15 (update Transactions):
-   add `project_code`, `cost_code` and `reason`, each from the receipt loop's (step 6)
-   field of the same name — as FNC-001 step 12 does.
+   the no-match month step 5's `receipt_month`.
+6. **FNC-002 copies coding to the charge** (finding 3). Step 16 (update Transactions):
+   add `project_code`, `cost_code` and `reason`, each from the receipt loop's (step 7)
+   field of the same name — as FNC-001 step 13 does.
 7. **Cover page** (finding 4). Paste `templates/finance_package_cover.html` into the
    Finance Package Cover template: its four tables now print with `{{{ }}}`.
 
