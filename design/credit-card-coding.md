@@ -608,7 +608,11 @@ text, the fallback is a loop over the IDs with one equals-search each.
 not a value: putting it in a list variable's text field cut it short, and a formula cannot encode
 it ("no method 'encode_base64' for (input stream)"). So receipts never pass through a list: the
 first Merge PDF takes the Receipts search's records directly, each record's `receipt_file` file
-content as is, and a second Merge PDF joins the cover and that result. `package_files` keeps
+content as is, and a second Merge PDF joins the cover and that result. Merge PDF needs two files
+or more, so the receipts merge runs only when the search found more than one; with one, a single
+merge joins the cover and that receipt, its file mapped from the search's records outside any loop
+(Workato takes the first record). The job's file is whichever merge ran, else the cover:
+`(merge A content).presence || (merge B content).presence || cover content`, encoded. `package_files` keeps
 only which receipts were found, for the split step. Files that are values - a converted PDF, the
 merged job PDF, the summary - go into `month_files` base64-encoded and are decoded for the email
 attachment; should Outlook want base64, that decode comes off. Receipts are stored as PDFs, the
