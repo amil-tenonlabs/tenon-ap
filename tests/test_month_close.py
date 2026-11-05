@@ -97,8 +97,8 @@ def main():
     check('charges and split shares are each marked sent where they live, the cardholder\'s only',
           sorted(x['record_id'] for x in r['mark_sent']) == ['rec-A1', 'rec-A2']
           and sorted(x['record_id'] for x in r['mark_sent_splits']) == ['s1', 's2'])
-    check('file names carry month, cardholder and job',
-          g['Oak St']['file_name'] == 'Finance_Package_2026-10_PAT-SAMPLE_Oak-St.pdf'
+    check('a job PDF is named job code, cardholder, month, CC-Transaction',
+          g['Oak St']['file_name'] == 'Oak-St_PAT-SAMPLE_2026-10_CC-Transaction.pdf'
           and r['summary_file_name'] == 'Card_Summary_2026-10_PAT-SAMPLE')
 
     pat_sent = [dict(t, sent_in_package=True, package_version_sent='1') if t['cardholder_name'] == 'PAT SAMPLE' else t for t in OCT]

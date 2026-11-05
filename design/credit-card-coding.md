@@ -591,7 +591,8 @@ cardholder and the card's last four digits, with no Cardholder or Month column -
 Amount. Completeness is per package: one cardholder's open charge holds only their month. One
 package per run, the oldest month first, then by cardholder, so with several cardholders run the
 recipe hourly rather than daily - a run with nothing ready stops at once. Files are named
-`Card_Summary_<month>_<cardholder>` and `Finance_Package_<month>_<cardholder>_<job>.pdf`.
+`Card_Summary_<month>_<cardholder>` and, for each job (owner, 2026-11-05),
+`<job code>_<cardholder>_<month>_CC-Transaction.pdf` - `77CARHSE_AMIL-EAPEN_2026-10_CC-Transaction.pdf`.
 "Close the statement month" gains two outputs, `cardholder_name` and `card_last4`; add
 `cardholder_name` to the email subject after `month_label`.
 

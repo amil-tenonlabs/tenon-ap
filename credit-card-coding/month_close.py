@@ -283,7 +283,7 @@ def main(input):
         lines = ['- %s | %s | %s | %s' % (i['transaction_id'], i['transaction_date'], i['merchant'], i['amount']) for i in g['items']]
         out_groups.append({
             'group_key': month + '|' + holder_name + '|' + job, 'receipt_month': month, 'project_code': job, 'version': version,
-            'file_name': 'Finance_Package_%s_%s_%s.pdf' % (_safe(month), _safe(holder_name), _safe(job)),
+            'file_name': '%s_%s_%s_CC-Transaction.pdf' % (_safe(job), _safe(holder_name), _safe(month)),
             'new_count': len(g['items']), 'previous_count': 0, 'total_count': len(g['items']),
             'new_total': '%.2f' % total, 'previous_total': '0.00', 'grand_total': '%.2f' % total,
             'changes_text': '\n'.join(lines),
