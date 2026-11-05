@@ -70,6 +70,8 @@ def main():
     check('a job\'s total is its charges and shares', g['Perry']['grand_total'] == '450.03' and g['Oak St']['grand_total'] == '206.00')
     check('the total is every charge of the cardholder\'s, split shares included', r['month_total'] == '659.03')
     check('a job\'s receipts are attached to its package', g['Perry']['receipt_ids'] == ['r1', 'r2'] and g['Oak St']['receipt_ids'] == ['r2'])
+    check('the receipt IDs also come as one comma-separated text, for the Receipts search',
+          g['Perry']['receipt_ids_text'] == 'r1,r2' and g['Office']['receipt_ids_text'] == '')
     office = g['Office']['transactions'][0]
     check('an exempt charge is in its job with no receipt needed',
           office['no_receipt_needed'] is True and office['receipt_id'] == '' and office['receipt_number'] == 'Not required (exempt)')

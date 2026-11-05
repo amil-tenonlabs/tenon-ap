@@ -595,6 +595,13 @@ recipe hourly rather than daily - a run with nothing ready stops at once. Files 
 "Close the statement month" gains two outputs, `cardholder_name` and `card_last4`; add
 `cardholder_name` to the email subject after `month_label`.
 
+**Receipts search (2026-11-05).** The job loop's Receipts search (step 15) filters Record ID *in*
+the group's receipt IDs. `receipt_ids` is a list of plain strings, which Workato does not read
+from a Python step - the filter value arrived blank, the search found nothing, and every job PDF
+went out as its cover alone. Each group now also carries `receipt_ids_text`, the IDs joined by
+commas; map it into the filter with no formula. Should the *in* filter not take comma-separated
+text, the fallback is a loop over the IDs with one equals-search each.
+
 **Cover styles (2026-11-05).** Four styles, none in colour - `minimal` (the default and the one in use, owner 2026-11-05: black
 rules, no fill), `ledger` (hairlines, fixed-width figures, double rule under the total), `banded` (grey
 bands) and `classic` (serif). "Close the statement month" takes an optional input `style`; blank
