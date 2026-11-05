@@ -288,7 +288,7 @@ def main(input):
             'new_total': '%.2f' % total, 'previous_total': '0.00', 'grand_total': '%.2f' % total,
             'changes_text': '\n'.join(lines),
             'changes_html': '<ul>' + ''.join('<li>%s</li>' % _h(x[2:]) for x in lines) + '</ul>',
-            'receipt_ids': g['receipt_ids'], 'transactions': g['items'],
+            'receipt_ids': g['receipt_ids'], 'receipt_ids_text': ','.join(g['receipt_ids']), 'transactions': g['items'],
             'cover_html': _page('Job %s - %s' % (job, label), '%s%s &nbsp;|&nbsp; Prepared %s' % (_h(holder_name), card_text, _h(today)),
                                 [x for x in cover_lines if x['job'] == job], False, style),
             'new_transactions': [{k: i[k] for k in ('record_id', 'table', 'transaction_id', 'transaction_date', 'merchant',
