@@ -55,9 +55,12 @@ The fixes that block testing, with editor steps, are in the design record's
 - [ ] **Charge Form once Item Complete stops emailing it** — attach it to the finance
       package, or drop it. Decide before step 6 of that build.
 
-- [ ] **Build the month package** — statement month, sent only when complete, one email with a
-      summary cover by cardholder and job plus a package per job; decided 2026-11-05 and built in
-      the repo. Workato side: design record, "The month package", steps 1-12.
+- [ ] **Finish the month package** — built by AIRO *(export 11-05)*; still to do: paste
+      `month_close.py` into step 7 and the updated `split_finance_package.py` into step 32 (both
+      still hold the old code, so the run stops at step 9 and packages would be covers only); render
+      the summary from `summary_html` instead of the empty Finance Package Cover (steps 45-46);
+      delete step 6 and step 50, which point at Transactions until a Splits table exists. On the
+      exported data October closes: 14 charges, all complete.
 - [ ] **A month can close before every card's statement is in** — it closes on the statements
       loaded, so a cardholder whose statement has not arrived yet is not noticed. A list
       of expected cards in Card Holders would let the close wait for every one.
