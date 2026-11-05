@@ -603,20 +603,25 @@ went out as its cover alone. Each group now also carries `receipt_ids_text`, the
 commas; map it into the filter with no formula. Should the *in* filter not take comma-separated
 text, the fallback is a loop over the IDs with one equals-search each.
 
-**Files in list variables (2026-11-05).** With the Receipts search fixed, the merge failed:
-"End-of-File, expected line at offset 352". A receipt read from the Receipts table is a **stream**,
-not a value: putting it in a list variable's text field cut it short, and a formula cannot encode
-it ("no method 'encode_base64' for (input stream)"). So receipts never pass through a list: the
-first Merge PDF takes the Receipts search's records directly, each record's `receipt_file` file
-content as is, and a second Merge PDF joins the cover and that result. Merge PDF needs two files
-or more, so the receipts merge runs only when the search found more than one; with one, a single
-merge joins the cover and that receipt, its file mapped from the search's records outside any loop
-(Workato takes the first record). The job's file is whichever merge ran, else the cover:
-`(merge A content).presence || (merge B content).presence || cover content`, encoded. `package_files` keeps
-only which receipts were found, for the split step. Files that are values - a converted PDF, the
-merged job PDF, the summary - go into `month_files` base64-encoded and are decoded for the email
-attachment; should Outlook want base64, that decode comes off. Receipts are stored as PDFs, the
-intake converting images first; one stored as an image would fail the receipts merge.
+**Files are streams, so no list variables (2026-11-05).** A receipt read from the Receipts table
+is a stream, and so is anything Merge PDF makes from one. A list variable's text field cut one
+short ("End-of-File, expected line at offset 352"), and a formula cannot encode one ("no method
+'encode_base64' for (input stream)"). So no file passes through a list or a formula:
+
+- The first Merge PDF takes the Receipts search's records directly. It needs two files or more,
+  so it runs only when the search found more than one receipt; a second merge joins the cover
+  with its result. With exactly one receipt, a single merge joins the cover and that receipt,
+  its file mapped from the search's records outside any loop (Workato takes the first record).
+- Each finished file is saved to a data table, **Package Files** (`run_key`, `sort`, `file`), by
+  an "Add record" in each branch - the two-or-more merge, the one-receipt merge, the cover alone
+  for a job of exempt charges, and the summary - each mapping its own Content pill. `run_key`
+  is a variable set at the start of the run (`now.strftime('%Y%m%d%H%M%S%L')`); the summary has
+  `sort` 0 and job PDFs 1.
+- The email's attachments are a search of Package Files on `run_key`, ordered by `sort`, each
+  attachment the record's file - filename and file content as plain pills. The table doubles as
+  an archive of what was sent.
+- Should Outlook refuse a stream as an attachment, the fallback is one email per job from inside
+  the loop, attaching the merge's Content directly, as the original recipe did.
 
 **Cover styles (2026-11-05).** Four styles, none in colour - `minimal` (the default and the one in use, owner 2026-11-05: black
 rules, no fill), `ledger` (hairlines, fixed-width figures, double rule under the total), `banded` (grey

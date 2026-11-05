@@ -55,10 +55,10 @@ The fixes that block testing, with editor steps, are in the design record's
 - [ ] **Charge Form once Item Complete stops emailing it** — attach it to the finance
       package, or drop it. Decide before step 6 of that build.
 
-- [ ] **Receipts in the packages: merge from the search** — step 15 fixed with
-      `receipt_ids_text`; receipt files are streams, which a list cannot hold or a formula encode.
-      Merge the Receipts search's records directly, then the cover with that (design record,
-      "Files in list variables"). Untested.
+- [ ] **Receipts in the packages: files through a data table** — receipts and merged PDFs are
+      streams, which neither a list variable nor a formula can hold. Save each finished file to a
+      Package Files table and attach the run's records (design record, "Files are streams").
+      Untested, and whether Outlook takes a stream as an attachment is unconfirmed.
 - [ ] **Deploy the simpler covers** — design record, "Simpler covers", steps 1-3.
 - [ ] **A month can close before every card's statement is in** — it closes on the statements
       loaded, so a cardholder whose statement has not arrived yet is not noticed. A list
