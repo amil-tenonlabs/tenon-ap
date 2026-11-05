@@ -507,6 +507,75 @@ photo, and the email's coding and splits, in one call.
 6. Email Intake: route non-inline images to FNC-001 (an Else if on step 5, as the image list in 1
    AND `IsInline` is not true), and add AND the name ends `.pdf` to step 17's receipt condition.
 
+## The month package: a summary cover and one package per job
+
+Decided by the owner (2026-11-05): packages follow the **statement month**, so totals tie to the
+card statements; a month goes to finance only when it is **complete**; and it goes as **one
+email** holding a summary cover and one PDF per job. Built in the repo (`month_close.py`,
+`templates/card_summary.html`); checks pass (`tests/test_month_close.py`), needs testing in
+Workato. It replaces the daily per-group packages, and with them `group_finance_package.py`.
+
+**The rules**
+
+- A charge is complete when it has a matched receipt that is on file, or is exempt, and is coded
+  - project, cost code and reason, or for a split every share, the shares adding up to the
+  charge. Coding from history counts from the day after it was applied.
+- A statement month goes when every charge on it is complete and at least one is unsent. One
+  open charge holds the whole month; the daily digest keeps chasing it. A complete month goes
+  even while an earlier one is open. One month per run, the oldest first.
+- The summary cover lists each cardholder's total by job, each cardholder's total, the total by
+  job, and the month's total - every charge, credits negative, split shares in each of their
+  jobs.
+- One package per job: the existing cover (`finance_package_cover.html`, its Month the statement
+  month) and the job's receipts. An exempt charge is listed with "Not required (exempt)" and no
+  file; a job of exempt charges only is its cover alone.
+- A receipt file that cannot be used (none attached, an image that will not convert) holds the
+  month too: nothing is sent, and the problem is emailed instead.
+- A month changed after it was sent - a re-sent statement adding a row - goes again whole, as the
+  next version, once complete.
+
+**Build (RCP-003, Daily Finance Package)**
+
+Steps as the editor shows them in the 2026-11-04 (second) export.
+
+1. **Template** "Card Summary": `templates/card_summary.html`, one input `summary_html`.
+2. **Splits table** from the Splits build, if not built yet (an empty table is fine).
+3. Step 4 (Search Transactions): remove the `matched` filter - the month needs every charge.
+   Keep limit 1000 (finding 10 still applies).
+4. After step 5 (Search Receipts): Search records, Splits, limit 1000, field name to value.
+5. Step 6: paste `month_close.py`. Inputs: `transactions_json` = step 4's Records `.to_json`;
+   `receipts_json` = step 5's Records `.pluck('Record ID', 'receipt_number').to_json`;
+   `splits_json` = the Splits Records `.to_json`; `today` = `today.strftime('%Y-%m-%d')`.
+   Append outputs, never regenerate: `ready` (boolean), `statement_month`, `month_label`,
+   `version` (integer), `group_count` (integer), `summary_html`, `summary_file_name`,
+   `month_total`, `status_log`, `blocker_count` (integer), `mark_sent` and `mark_sent_splits`
+   (lists: `record_id`, `transaction_id`), `blockers` (list: `cardholder_name`,
+   `transaction_id`, `transaction_date`, `merchant`, `amount`, `missing`); and in `groups` →
+   `transactions` and `new_transactions`: `table`, `cost_code`, `split_note`,
+   `no_receipt_needed` (boolean). `groups` keeps its other fields.
+6. Step 7's log: `status_log`. Step 8's IF becomes `ready` is not true → Stop (no error), reason
+   `status_log` + the first few `blockers`.
+7. Before step 10's loop: Create list `month_files` (`file_name`, `file_contents`); Create
+   variable `month_complete` (boolean, true); Create list `month_flags` (`text`).
+8. Step 28: paste the updated `split_finance_package.py`; append output `has_files` (boolean).
+9. After step 29: IF `held_back_count` > 0 → Update `month_complete` false; add `flagged_text` to
+   `month_flags`.
+10. Inside step 30 (IF `send_package`): keep 31-33; make 34 (merge) run only IF `has_files`;
+    replace 35 (send email) with Add to list `month_files`: the merged PDF, or step 32's cover
+    PDF when there are no files, named `file_name`; delete 36 (mark sent) from the loop.
+11. After the loop: IF `month_complete`:
+    - Create document, "Card Summary", `summary_html`; Convert to PDF, named
+      `summary_file_name`.
+    - Send email to finance: subject `[CC] Credit card package ` + `month_label` + ` v` +
+      `version` + ` - ` + `group_count` + ` jobs, $` + `month_total`; attachments: the summary
+      PDF, then every `month_files` item.
+    - Update records batch, Transactions, from `mark_sent`: `sent_in_package` true,
+      `package_version_sent` = `version`, `sent_date` now. The same on Splits from
+      `mark_sent_splits`.
+    - ELSE: Log, and email the tester "[CC] " + `month_label` + " not sent: receipt files could
+      not be used", body the `month_flags` joined.
+12. Run it from the editor once all of the month is in.
+
 ## Open decisions
 
 - Fix in place, in the order above, or rebuild on the AP design (Claude, ACC, own mailbox).

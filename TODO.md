@@ -55,6 +55,13 @@ The fixes that block testing, with editor steps, are in the design record's
 - [ ] **Charge Form once Item Complete stops emailing it** — attach it to the finance
       package, or drop it. Decide before step 6 of that build.
 
+- [ ] **Build the month package** — statement month, sent only when complete, one email with a
+      summary cover by cardholder and job plus a package per job; decided 2026-11-05 and built in
+      the repo. Workato side: design record, "The month package", steps 1-12.
+- [ ] **A month can close before every card's statement is in** — it closes on the statements
+      loaded, so a cardholder whose statement has not arrived yet is not noticed. A list
+      of expected cards in Card Holders would let the close wait for every one.
+
 ## 2. Credit card coding: wrong in some cases
 
 - [ ] **No-match uses the calendar month and any card's statement** (7).

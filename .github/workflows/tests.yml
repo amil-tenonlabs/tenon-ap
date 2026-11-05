@@ -33,3 +33,6 @@ jobs:
 
       - name: Reading a receipt
         run: python3 tests/test_read_receipt.py
+
+      - name: The month package
+        run: python3 tests/test_month_close.py
