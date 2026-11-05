@@ -591,7 +591,8 @@ cardholder and the card's last four digits, with no Cardholder or Month column -
 Amount. Completeness is per package: one cardholder's open charge holds only their month. One
 package per run, the oldest month first, then by cardholder, so with several cardholders run the
 recipe hourly rather than daily - a run with nothing ready stops at once. Files are named
-`Card_Summary_<month>_<cardholder>` and `Finance_Package_<month>_<cardholder>_<job>.pdf`.
+`Card_Summary_<month>_<cardholder>` and, for each job (owner, 2026-11-05),
+`<job code>_<cardholder>_<month>_CC-Transaction.pdf` - `77CARHSE_AMIL-EAPEN_2026-10_CC-Transaction.pdf`.
 "Close the statement month" gains two outputs, `cardholder_name` and `card_last4`; add
 `cardholder_name` to the email subject after `month_label`.
 
@@ -601,6 +602,17 @@ from a Python step - the filter value arrived blank, the search found nothing, a
 went out as its cover alone. Each group now also carries `receipt_ids_text`, the IDs joined by
 commas; map it into the filter with no formula. Should the *in* filter not take comma-separated
 text, the fallback is a loop over the IDs with one equals-search each.
+
+**Files in list variables (2026-11-05).** With the Receipts search fixed, the merge failed:
+"End-of-File, expected line at offset 352". A receipt read from the Receipts table is a **stream**,
+not a value: putting it in a list variable's text field cut it short, and a formula cannot encode
+it ("no method 'encode_base64' for (input stream)"). So receipts never pass through a list: the
+first Merge PDF takes the Receipts search's records directly, each record's `receipt_file` file
+content as is, and a second Merge PDF joins the cover and that result. `package_files` keeps
+only which receipts were found, for the split step. Files that are values - a converted PDF, the
+merged job PDF, the summary - go into `month_files` base64-encoded and are decoded for the email
+attachment; should Outlook want base64, that decode comes off. Receipts are stored as PDFs, the
+intake converting images first; one stored as an image would fail the receipts merge.
 
 **Cover styles (2026-11-05).** Four styles, none in colour - `minimal` (the default and the one in use, owner 2026-11-05: black
 rules, no fill), `ledger` (hairlines, fixed-width figures, double rule under the total), `banded` (grey

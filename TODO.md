@@ -55,12 +55,10 @@ The fixes that block testing, with editor steps, are in the design record's
 - [ ] **Charge Form once Item Complete stops emailing it** — attach it to the finance
       package, or drop it. Decide before step 6 of that build.
 
-- [ ] **Receipts missing from the packages: fix step 15's filter** — found 2026-11-05: the
-      Receipts search in the job loop returned 0 records because its filter value,
-      `receipt_ids.join(',')`, is blank - Workato does not read a Python output's list of plain
-      strings. `month_close.py` now also returns `receipt_ids_text`; map that pill straight into
-      step 15's "Record ID in" filter. If "in" will not take comma-separated text either, search
-      one ID at a time (design record, month package).
+- [ ] **Receipts in the packages: merge from the search** — step 15 fixed with
+      `receipt_ids_text`; receipt files are streams, which a list cannot hold or a formula encode.
+      Merge the Receipts search's records directly, then the cover with that (design record,
+      "Files in list variables"). Untested.
 - [ ] **Deploy the simpler covers** — design record, "Simpler covers", steps 1-3.
 - [ ] **A month can close before every card's statement is in** — it closes on the statements
       loaded, so a cardholder whose statement has not arrived yet is not noticed. A list
