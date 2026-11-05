@@ -55,6 +55,12 @@ The fixes that block testing, with editor steps, are in the design record's
 - [ ] **Charge Form once Item Complete stops emailing it** — attach it to the finance
       package, or drop it. Decide before step 6 of that build.
 
+- [ ] **A stored receipt was broken: pass files between recipes as base64** — the merge failed at
+      offset 352 on `INV70645473`, whose stored file is cut short; it came through on 2026-11-04/05,
+      when the intake passed the raw attachment to Process Receipt in a text parameter. Intake:
+      encode before the call (PDFs and converted photos); Process Receipt: `attachment_content
+      .decode_base64` when storing, base64 as is to Claude. Replace the broken file by hand, and
+      check every receipt stored in that window opens.
 - [ ] **Receipts in the packages: files through a data table** — receipts and merged PDFs are
       streams, which neither a list variable nor a formula can hold. Save each finished file to a
       Package Files table and attach the run's records (design record, "Files are streams").

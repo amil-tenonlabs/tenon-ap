@@ -623,6 +623,11 @@ short ("End-of-File, expected line at offset 352"), and a formula cannot encode 
 - Should Outlook refuse a stream as an attachment, the fallback is one email per job from inside
   the loop, attaching the merge's Content directly, as the original recipe did.
 
+**Files between recipes (2026-11-05).** A recipe call's parameters are text, so a file crosses
+from the intake to Process Receipt as base64: the intake encodes it (a raw PDF, a converted photo)
+and Process Receipt decodes it only to store it, passing it to Claude as base64. Passed raw, a PDF
+was cut short - `INV70645473` was stored at 352 bytes and later failed the merge.
+
 **Cover styles (2026-11-05).** Four styles, none in colour - `minimal` (the default and the one in use, owner 2026-11-05: black
 rules, no fill), `ledger` (hairlines, fixed-width figures, double rule under the total), `banded` (grey
 bands) and `classic` (serif). "Close the statement month" takes an optional input `style`; blank
