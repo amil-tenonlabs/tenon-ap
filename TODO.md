@@ -55,12 +55,12 @@ The fixes that block testing, with editor steps, are in the design record's
 - [ ] **Charge Form once Item Complete stops emailing it** — attach it to the finance
       package, or drop it. Decide before step 6 of that build.
 
-- [ ] **Finish the month package** — built by AIRO *(export 11-05)*; still to do: paste
-      `month_close.py` into step 7 and the updated `split_finance_package.py` into step 32 (both
-      still hold the old code, so the run stops at step 9 and packages would be covers only); render
-      the summary from `summary_html` instead of the empty Finance Package Cover (steps 45-46);
-      delete step 6 and step 50, which point at Transactions until a Splits table exists. On the
-      exported data October closes: 14 charges, all complete.
+- [ ] **Receipts missing from the October package** — October went out as v1 on 2026-11-05
+      with, per the owner, no receipts in it. The export *(11-05, third)* shows the file steps
+      wired as designed and both Python steps matching the repo; check the job's merge step (did
+      `package_files` hold the receipts, and `has_files` true?) and the receipt search's file
+      field (does `receipt_file` carry `file_content` in a search, or only a link?).
+- [ ] **Deploy the simpler covers** — design record, "Simpler covers", steps 1-3.
 - [ ] **A month can close before every card's statement is in** — it closes on the statements
       loaded, so a cardholder whose statement has not arrived yet is not noticed. A list
       of expected cards in Card Holders would let the close wait for every one.

@@ -523,11 +523,14 @@ Workato. It replaces the daily per-group packages, and with them `group_finance_
 - A statement month goes when every charge on it is complete and at least one is unsent. One
   open charge holds the whole month; the daily digest keeps chasing it. A complete month goes
   even while an earlier one is open. One month per run, the oldest first.
-- The summary cover lists each cardholder's total by job, each cardholder's total, the total by
-  job, and the month's total - every charge, credits negative, split shares in each of their
-  jobs.
-- One package per job: the existing cover (`finance_package_cover.html`, its Month the statement
-  month) and the job's receipts. An exempt charge is listed with "Not required (exempt)" and no
+- Both covers are one table (owner, 2026-11-05: "simpler covers, group by job code then cost
+  code with transaction names and amounts with totals"): job, then cost code, then each
+  transaction - date, merchant, cardholder, amount - with a total per cost code and per job. The
+  summary covers every job and ends with the month's total; a job's cover holds that job alone,
+  ahead of its receipts. An exempt charge says "exempt, no receipt"; a split share names the
+  charge it is part of and the other shares. Credits are negative. Both are built in
+  `month_close.py` (`summary_html`, each group's `cover_html`), so no message template is used.
+- One package per job: its cover (`cover_html`) and the job's receipts. An exempt charge is listed with "Not required (exempt)" and no
   file; a job of exempt charges only is its cover alone.
 - A receipt file that cannot be used (none attached, an image that will not convert) holds the
   month too: nothing is sent, and the problem is emailed instead.
@@ -578,6 +581,16 @@ Steps as the editor shows them in the 2026-11-04 (second) export.
     - ELSE: Log, and email the tester "[CC] " + `month_label` + " not sent: receipt files could
       not be used", body the `month_flags` joined.
 12. Run it from the editor once all of the month is in.
+
+**Simpler covers (2026-11-05), on top of the build above**
+
+1. Step "Close the statement month": paste `month_close.py`; append to `groups` the output field
+   `cover_html` (string).
+2. Inside the IF on `send_package`: delete the "Create document" step that renders Finance
+   Package Cover. In the "Convert to PDF" after it, keep file format `html` and set the source to
+   `'<html><body style="font-family:Arial,Helvetica,sans-serif;padding:24px">' + [group cover_html] + '</body></html>'`,
+   with `cover_html` from the group loop's current item.
+3. The summary's "Convert to PDF" is unchanged: it already wraps `summary_html`.
 
 ## Open decisions
 
