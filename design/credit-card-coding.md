@@ -602,6 +602,13 @@ went out as its cover alone. Each group now also carries `receipt_ids_text`, the
 commas; map it into the filter with no formula. Should the *in* filter not take comma-separated
 text, the fallback is a loop over the IDs with one equals-search each.
 
+**Files in list variables (2026-11-05).** With the Receipts search fixed, the merge failed:
+"End-of-File, expected line at offset 352". The lists holding files (`package_files`,
+`month_files`) have text fields, and a PDF's binary bytes put in one are cut short. Files go into
+the lists base64-encoded and are decoded where used: `.encode_base64` on the receipt, converted
+image, cover, job PDF and summary as they are added; `.decode_base64` on the Merge PDF input and on
+the email attachment. Should Outlook want an attachment in base64, the email's decode comes off.
+
 **Cover styles (2026-11-05).** Four styles, none in colour - `minimal` (the default and the one in use, owner 2026-11-05: black
 rules, no fill), `ledger` (hairlines, fixed-width figures, double rule under the total), `banded` (grey
 bands) and `classic` (serif). "Close the statement month" takes an optional input `style`; blank
