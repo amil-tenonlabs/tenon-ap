@@ -41,9 +41,11 @@ The fixes that block testing, with editor steps, are in the design record's
       the job as `reason` and no `project_code`. FNC-001 step 4's field descriptions
       ask for a "project code"; say a project is a job name or number, and the reason
       is the purpose of the purchase.
-- [ ] **Image receipts dropped** (5) — the fix is built in the repo: images converted to
-      PDF only for HEIC and TIFF, every receipt read by AI by Workato's Analyze image.
-      Workato side: design record, "Reading receipts with AI by Workato", steps 1-3.
+- [ ] **Image receipts dropped** (5) — being built in Workato on the Claude connector, images
+      converted to PDF first: design record, "Reading receipts with Claude".
+- [ ] **Ask the APM chat for image blocks in the Claude connector's Send message** — encode any
+      raw file, and send image/png, jpeg, gif and webp as `image` blocks. Removes the PDF
+      conversion and reads phone screenshots at full resolution. Handoff not yet written.
 - [ ] **Build coding after the receipt** — replies, the coding sheet, history and
       5-minute batched email, decided 2026-11-04 and built in the repo; the Workato
       side is the design record's "Coding after the receipt", steps 1-8, in order.
