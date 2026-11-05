@@ -51,45 +51,99 @@ def _month_name(m):
         return m
 
 
-def _grouped(items, show_grand):
-    """Job, then cost code, then each transaction and its amount, with totals."""
-    cell = 'padding:3px 6px;border-bottom:1px solid #e3e3e3'
-    out = ['<table cellspacing="0" style="border-collapse:collapse;width:100%%;font-size:12px">'
-           '<tr style="background:#222;color:#fff"><th style="%s;text-align:left">Date</th>'
-           '<th style="%s;text-align:left">Transaction</th><th style="%s;text-align:left">Cardholder</th>'
-           '<th style="%s;text-align:right">Amount</th></tr>' % (cell, cell, cell, cell)]
+STYLES = {
+    # Plain black on white: rules only, no fill.
+    'minimal': {
+        'font': 'Arial,Helvetica,sans-serif', 'size': '12px', 'title': 'font-size:18px;font-weight:bold',
+        'head': 'border-bottom:2px solid #000;font-weight:bold',
+        'job': 'font-weight:bold;font-size:13px;padding-top:14px;border-bottom:1px solid #000',
+        'cost': 'font-weight:bold;color:#444;padding-left:12px;padding-top:6px',
+        'row': '', 'sub': 'font-weight:bold;border-top:1px solid #999',
+        'jobtotal': 'font-weight:bold;border-top:1px solid #000', 'grand': 'font-weight:bold;border-top:3px double #000;font-size:13px'},
+    # An accountant's ledger: hairlines between rows, figures in a fixed-width face, double rule under the total.
+    'ledger': {
+        'font': 'Arial,Helvetica,sans-serif', 'size': '12px', 'title': 'font-size:17px;font-weight:bold;letter-spacing:0.5px;text-transform:uppercase',
+        'head': 'border-top:1px solid #000;border-bottom:1px solid #000;font-weight:bold;text-transform:uppercase;font-size:10px;letter-spacing:0.5px',
+        'job': 'font-weight:bold;text-transform:uppercase;padding-top:14px;letter-spacing:0.5px',
+        'cost': 'padding-left:12px;color:#333;font-style:italic',
+        'row': 'border-bottom:1px solid #e6e6e6', 'sub': 'font-weight:bold;border-top:1px solid #000',
+        'jobtotal': 'font-weight:bold;border-bottom:1px solid #000', 'grand': 'font-weight:bold;border-bottom:3px double #000;font-size:13px',
+        'amount': 'font-family:Menlo,Consolas,monospace'},
+    # Soft grey bands for each job and its total, white rows between.
+    'banded': {
+        'font': 'Arial,Helvetica,sans-serif', 'size': '12px', 'title': 'font-size:18px;font-weight:bold;color:#333',
+        'head': 'background:#555;color:#fff;font-weight:bold',
+        'job': 'background:#e9e9e9;font-weight:bold;font-size:13px',
+        'cost': 'background:#f6f6f6;font-weight:bold;padding-left:12px;color:#444',
+        'row': 'border-bottom:1px solid #eee', 'sub': 'font-weight:bold',
+        'jobtotal': 'background:#e9e9e9;font-weight:bold', 'grand': 'background:#555;color:#fff;font-weight:bold;font-size:13px'},
+    # A printed statement: serif type, centred heading, thin rules.
+    'classic': {
+        'font': 'Georgia,"Times New Roman",serif', 'size': '12.5px', 'title': 'font-size:20px;font-weight:normal;text-align:center',
+        'subtitle': 'text-align:center', 'head': 'border-bottom:1px solid #000;font-weight:normal;font-style:italic',
+        'job': 'font-size:14px;padding-top:14px;font-variant:small-caps;letter-spacing:0.5px;border-bottom:1px solid #999',
+        'cost': 'font-style:italic;padding-left:12px',
+        'row': '', 'sub': 'font-style:italic;border-top:1px solid #ccc',
+        'jobtotal': 'font-weight:bold;border-top:1px solid #000', 'grand': 'font-weight:bold;border-top:3px double #000;font-size:14px'},
+}
+DEFAULT_STYLE = 'minimal'
+
+
+def _grouped(items, show_grand, style):
+    """Job, then cost code, then each transaction and its amount, with totals. The cardholder
+    column appears only when the items hold more than one cardholder."""
+    st = STYLES.get(style) or STYLES[DEFAULT_STYLE]
+    multi = len(set(i['holder'] for i in items)) > 1
+    width = 4 if multi else 3
+    pad = 'padding:3px 6px'
+    amt = st.get('amount', '')
+
+    def td(text, extra='', right=False, colspan=1):
+        return '<td%s style="%s;%s%s">%s</td>' % (' colspan="%d"' % colspan if colspan > 1 else '', pad,
+                                                  'text-align:right;white-space:nowrap;' if right else '', extra, text)
+
+    head = ['Date', 'Transaction'] + (['Cardholder'] if multi else []) + ['Amount']
+    out = ['<table cellspacing="0" style="border-collapse:collapse;width:100%%;font-size:%s">' % st['size'],
+           '<tr>' + ''.join('<th style="%s;text-align:%s;%s">%s</th>' % (pad, 'right' if h == 'Amount' else 'left', st['head'], h)
+                            for h in head) + '</tr>']
+
+    def total_row(label, value, key):
+        return '<tr>%s%s</tr>' % (td(label, st[key], right=True, colspan=width - 1), td(_money(value), st[key] + ';' + amt, right=True))
+
     grand = Decimal('0')
-    for job in sorted(set(i['job'] for i in items)):
+    jobs = sorted(set(i['job'] for i in items))
+    for job in jobs:
         job_items = [i for i in items if i['job'] == job]
         job_total = sum((i['amt'] for i in job_items), Decimal('0'))
         grand += job_total
-        out.append('<tr style="background:#dfe7f1"><td colspan="4" style="%s;font-weight:bold;font-size:13px">Job %s</td></tr>'
-                   % (cell, _h(job)))
+        if len(jobs) > 1 or show_grand:
+            out.append('<tr>%s</tr>' % td('Job ' + _h(job), st['job'], colspan=width))
         for cost in sorted(set(i['cost'] for i in job_items)):
             rows = sorted((i for i in job_items if i['cost'] == cost), key=lambda i: (i['date'], i['name']))
-            out.append('<tr style="background:#f3f3f3"><td colspan="4" style="%s;font-weight:bold;padding-left:14px">Cost code %s</td></tr>'
-                       % (cell, _h(cost)))
+            out.append('<tr>%s</tr>' % td('Cost code ' + _h(cost), st['cost'], colspan=width))
             for i in rows:
                 name = _h(i['name']) + (' <span style="color:#777">(%s)</span>' % _h(i['note']) if i['note'] else '')
-                out.append('<tr><td style="%s;padding-left:22px;white-space:nowrap">%s</td><td style="%s">%s</td>'
-                           '<td style="%s">%s</td><td style="%s;text-align:right;white-space:nowrap">%s</td></tr>'
-                           % (cell, _h(i['date']), cell, name, cell, _h(i['holder']), cell, _money(i['amt'])))
-            out.append('<tr><td colspan="3" style="%s;text-align:right;font-weight:bold">Cost code %s total</td>'
-                       '<td style="%s;text-align:right;font-weight:bold">%s</td></tr>'
-                       % (cell, _h(cost), cell, _money(sum((i['amt'] for i in rows), Decimal('0')))))
-        out.append('<tr style="background:#dfe7f1"><td colspan="3" style="%s;text-align:right;font-weight:bold">Job %s total</td>'
-                   '<td style="%s;text-align:right;font-weight:bold">%s</td></tr>' % (cell, _h(job), cell, _money(job_total)))
+                cells = [td(_h(i['date']), st['row'] + ';padding-left:20px;white-space:nowrap'), td(name, st['row'])]
+                if multi:
+                    cells.append(td(_h(i['holder']), st['row']))
+                cells.append(td(_money(i['amt']), st['row'] + ';' + amt, right=True))
+                out.append('<tr>%s</tr>' % ''.join(cells))
+            out.append(total_row('Cost code %s total' % _h(cost), sum((i['amt'] for i in rows), Decimal('0')), 'sub'))
+        out.append(total_row('Job %s total' % _h(job), job_total, 'jobtotal'))
     if show_grand:
-        out.append('<tr style="background:#222;color:#fff"><td colspan="3" style="%s;text-align:right;font-weight:bold">Total, all jobs</td>'
-                   '<td style="%s;text-align:right;font-weight:bold">%s</td></tr>' % (cell, cell, _money(grand)))
+        out.append(total_row('Total, all jobs', grand, 'grand'))
     return ''.join(out) + '</table>'
 
 
-def _page(title, subtitle, table):
-    return ('<div style="font-family:Arial,Helvetica,sans-serif;color:#222">'
-            '<h2 style="margin:0 0 2px 0;font-size:18px">%s</h2><p style="margin:0 0 12px 0;color:#666;font-size:12px">%s</p>%s'
-            '<p style="margin-top:10px;color:#777;font-size:11px">Credits are negative. A split charge appears at its share.</p></div>'
-            % (_h(title), subtitle, table))
+def _page(title, subtitle, items, show_grand, style):
+    st = STYLES.get(style) or STYLES[DEFAULT_STYLE]
+    holders = sorted(set(i['holder'] for i in items))
+    if len(holders) == 1:
+        subtitle = 'Cardholder %s &nbsp;|&nbsp; %s' % (_h(holders[0]), subtitle)
+    return ('<div style="font-family:%s;color:#222">'
+            '<div style="margin:0 0 2px 0;%s">%s</div><div style="margin:0 0 14px 0;color:#666;font-size:11px;%s">%s</div>%s'
+            '<div style="margin-top:10px;color:#777;font-size:10px">Credits are negative. A split charge appears at its share.</div></div>'
+            % (st['font'], st['title'], _h(title), st.get('subtitle', ''), subtitle, _grouped(items, show_grand, style)))
 
 
 def _entries(t, splits):
@@ -152,6 +206,7 @@ def main(input):
         splits.setdefault(_s(sh.get('transaction_id')), []).append(sh)
     today = _s(input.get('today'))[:10] or date.today().isoformat()
     only = _s(input.get('statement_month'))
+    style = _s(input.get('style')).lower() or DEFAULT_STYLE
 
     months = {}
     for t in txns:
@@ -233,7 +288,8 @@ def main(input):
             'changes_text': '\n'.join(lines),
             'changes_html': '<ul>' + ''.join('<li>%s</li>' % _h(x[2:]) for x in lines) + '</ul>',
             'receipt_ids': g['receipt_ids'], 'transactions': g['items'],
-            'cover_html': _page('Job %s - %s' % (job, label), 'Credit card charges &nbsp;|&nbsp; Prepared %s' % _h(today), _grouped([x for x in cover_lines if x['job'] == job], False)),
+            'cover_html': _page('Job %s - %s' % (job, label), 'Credit card charges &nbsp;|&nbsp; Prepared %s' % _h(today),
+                                [x for x in cover_lines if x['job'] == job], False, style),
             'new_transactions': [{k: i[k] for k in ('record_id', 'table', 'transaction_id', 'transaction_date', 'merchant',
                                                     'amount', 'cost_code', 'receipt_id')} for i in g['items']],
         })
@@ -241,7 +297,7 @@ def main(input):
     summary = _page('Credit card summary - %s' % label,
                     'Statement month %s &nbsp;|&nbsp; Prepared %s &nbsp;|&nbsp; %d job package%s attached'
                     % (_h(chosen), _h(today), len(out_groups), '' if len(out_groups) == 1 else 's'),
-                    _grouped(cover_lines, True))
+                    cover_lines, True, style)
     return dict(empty, ready=True, statement_month=chosen, month_label=label, version=version, groups=out_groups,
                 group_count=len(out_groups), summary_html=summary, month_total='%.2f' % month_total,
                 summary_file_name='Card_Summary_%s' % _safe(chosen),

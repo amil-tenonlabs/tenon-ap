@@ -85,6 +85,14 @@ def main():
     check('a job cover holds only its own job, with its total and no month total',
           'Job Perry total' in perry and 'Oak St' not in perry.replace('also Oak St', '') and 'Total, all jobs' not in perry)
     check('the summary is titled with the month', 'Credit card summary - October 2026' in h)
+    check('one cardholder on a cover: named in the header, no column',
+          'Cardholder PAT SAMPLE' in perry and '>Cardholder</th>' not in perry and 'PAT SAMPLE</td>' not in perry)
+    check('several cardholders on the summary: a column, no name in the header',
+          '>Cardholder</th>' in h and 'Cardholder PAT' not in h)
+    check('a job cover does not repeat its job as a heading row', perry.count('>Job Perry<') == 0)
+    check('every style renders the same figures', all(
+        '$639.03' in run(OCT, style=st)['summary_html'] for st in close.STYLES))
+    check('an unknown style falls back to the default', run(OCT, style='nope')['summary_html'] == run(OCT)['summary_html'])
     check('charges and split shares are each marked sent where they live',
           sorted(x['record_id'] for x in r['mark_sent']) == ['rec-A1', 'rec-A2', 'rec-B1']
           and sorted(x['record_id'] for x in r['mark_sent_splits']) == ['s1', 's2'])

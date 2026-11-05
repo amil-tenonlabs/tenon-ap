@@ -584,6 +584,14 @@ Steps as the editor shows them in the 2026-11-04 (second) export.
       not be used", body the `month_flags` joined.
 12. Run it from the editor once all of the month is in.
 
+**Cover styles (2026-11-05).** Four styles, none in colour - `minimal` (the default: black rules,
+no fill), `ledger` (hairlines, fixed-width figures, double rule under the total), `banded` (grey
+bands) and `classic` (serif). "Close the statement month" takes an optional input `style`; blank
+or unknown is `minimal`. A cover whose charges are all one cardholder's names them in its header
+and has no Cardholder column (owner: "the card holder is always the same in a package"); the
+summary keeps the column whenever it holds more than one. A job's cover does not repeat its job
+as a heading row.
+
 **Simpler covers (2026-11-05), on top of the build above**
 
 1. Step "Close the statement month": paste `month_close.py`; append to `groups` the output field
