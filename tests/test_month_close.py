@@ -64,7 +64,7 @@ def run(txns, splits=SPLITS, **kw):
 def main():
     r = run(OCT)
     g = {x['project_code']: x for x in r['groups']}
-    check('a complete month is ready, version 1', r['ready'] and r['statement_month'] == '2026-10' and r['version'] == 1)
+    check('a complete month is ready', r['ready'] and r['statement_month'] == '2026-10')
     check('one package per job, split shares in each of their jobs', sorted(g) == ['Oak St', 'Office', 'Perry'])
     check('a job\'s total is its charges and shares', g['Perry']['grand_total'] == '450.03' and g['Oak St']['grand_total'] == '186.00')
     check('the month total is every charge, credits and shares included', r['month_total'] == '639.03')
@@ -73,14 +73,24 @@ def main():
     check('an exempt charge is in its job with no receipt needed',
           office['no_receipt_needed'] is True and office['receipt_id'] == '' and office['receipt_number'] == 'Not required (exempt)')
     h = r['summary_html']
-    check('the summary totals each cardholder', 'PAT SAMPLE total' in h and '$659.03' in h and 'SAM OTHER total' in h and '-$20.00' in h)
-    check('the summary totals the month', 'All cardholders' in h and '$639.03' in h and 'October 2026' in h)
-    check('the summary lists each cardholder by job', h.count('<td>PAT SAMPLE</td>') == 3)
+    check('the summary groups by job, then cost code',
+          h.index('Job Oak St<') < h.index('Cost code 02-100<') < h.index('Job Office<') < h.index('Job Perry<')
+          < h.index('Cost code 01-750<'))
+    check('each transaction is listed by name with its amount', 'M A1' in h and '$50.03' in h and 'M B1' in h and '-$20.00' in h)
+    check('cost code, job and month totals', 'Cost code 01-750 total' in h and 'Job Perry total</td>' in h
+          and '$450.03' in h and 'Total, all jobs' in h and '$639.03' in h)
+    check('a split share and an exempt charge say what they are',
+          'Split: $400.00 of $606.00' in h and 'exempt, no receipt' in h)
+    perry = g['Perry']['cover_html']
+    check('a job cover holds only its own job, with its total and no month total',
+          'Job Perry total' in perry and 'Oak St' not in perry.replace('also Oak St', '') and 'Total, all jobs' not in perry)
+    check('the summary is titled with the month', 'Credit card summary - October 2026' in h)
     check('charges and split shares are each marked sent where they live',
           sorted(x['record_id'] for x in r['mark_sent']) == ['rec-A1', 'rec-A2', 'rec-B1']
           and sorted(x['record_id'] for x in r['mark_sent_splits']) == ['s1', 's2'])
-    check('file names carry month, job and version', g['Oak St']['file_name'] == 'Finance_Package_2026-10_Oak-St_v1.pdf'
-          and r['summary_file_name'] == 'Card_Summary_2026-10_v1')
+    check('file names carry month and job, no version', g['Oak St']['file_name'] == 'Finance_Package_2026-10_Oak-St.pdf'
+          and r['summary_file_name'] == 'Card_Summary_2026-10')
+    check('no version on either cover', 'Version' not in r['summary_html'] and 'Version' not in g['Perry']['cover_html'])
 
     r = run(OCT + [tx('B2', 'SAM OTHER', 75, matched=False)])
     check('one charge with no receipt holds the whole month', not r['ready'] and r['groups'] == [] and r['mark_sent'] == [])
@@ -108,8 +118,9 @@ def main():
     r = run(sent, splits=sent_splits)
     check('a month already sent is not sent again', not r['ready'] and r['blocker_count'] == 0 and 'already sent' in r['status_log'])
     r = run(sent + [tx('B6', 'SAM OTHER', 12, receipt='r3', project='Oak St', cost='02-100', reason='late row')], splits=sent_splits)
-    check('a month changed after it was sent goes again whole, as v2',
-          r['ready'] and r['version'] == 2 and sum(x['total_count'] for x in r['groups']) == 6)
+    check('a month changed after it was sent goes again whole, under the same names',
+          r['ready'] and sum(x['total_count'] for x in r['groups']) == 6
+          and r['summary_file_name'] == 'Card_Summary_2026-10')
 
     g = {x['project_code']: x for x in run(OCT)['groups']}
     c = cover.main({'transactions_json': json.dumps(g['Office']['transactions']), 'included_receipt_ids_json': '[]',

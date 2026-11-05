@@ -51,15 +51,45 @@ def _month_name(m):
         return m
 
 
-def _table(headers, rows, right=(), bold_rows=()):
-    out = ['<table border="1" cellpadding="4" cellspacing="0" style="border-collapse:collapse;width:100%">',
-           '<tr>' + ''.join('<th style="text-align:%s">%s</th>' % ('right' if i in right else 'left', _h(x))
-                            for i, x in enumerate(headers)) + '</tr>']
-    for n, r in enumerate(rows):
-        style = ' style="font-weight:bold;background:#f5f5f5"' if n in bold_rows else ''
-        out.append('<tr%s>' % style + ''.join('<td%s>%s</td>' % (' style="text-align:right"' if i in right else '', _h(v))
-                                             for i, v in enumerate(r)) + '</tr>')
+def _grouped(items, show_grand):
+    """Job, then cost code, then each transaction and its amount, with totals."""
+    cell = 'padding:3px 6px;border-bottom:1px solid #e3e3e3'
+    out = ['<table cellspacing="0" style="border-collapse:collapse;width:100%%;font-size:12px">'
+           '<tr style="background:#222;color:#fff"><th style="%s;text-align:left">Date</th>'
+           '<th style="%s;text-align:left">Transaction</th><th style="%s;text-align:left">Cardholder</th>'
+           '<th style="%s;text-align:right">Amount</th></tr>' % (cell, cell, cell, cell)]
+    grand = Decimal('0')
+    for job in sorted(set(i['job'] for i in items)):
+        job_items = [i for i in items if i['job'] == job]
+        job_total = sum((i['amt'] for i in job_items), Decimal('0'))
+        grand += job_total
+        out.append('<tr style="background:#dfe7f1"><td colspan="4" style="%s;font-weight:bold;font-size:13px">Job %s</td></tr>'
+                   % (cell, _h(job)))
+        for cost in sorted(set(i['cost'] for i in job_items)):
+            rows = sorted((i for i in job_items if i['cost'] == cost), key=lambda i: (i['date'], i['name']))
+            out.append('<tr style="background:#f3f3f3"><td colspan="4" style="%s;font-weight:bold;padding-left:14px">Cost code %s</td></tr>'
+                       % (cell, _h(cost)))
+            for i in rows:
+                name = _h(i['name']) + (' <span style="color:#777">(%s)</span>' % _h(i['note']) if i['note'] else '')
+                out.append('<tr><td style="%s;padding-left:22px;white-space:nowrap">%s</td><td style="%s">%s</td>'
+                           '<td style="%s">%s</td><td style="%s;text-align:right;white-space:nowrap">%s</td></tr>'
+                           % (cell, _h(i['date']), cell, name, cell, _h(i['holder']), cell, _money(i['amt'])))
+            out.append('<tr><td colspan="3" style="%s;text-align:right;font-weight:bold">Cost code %s total</td>'
+                       '<td style="%s;text-align:right;font-weight:bold">%s</td></tr>'
+                       % (cell, _h(cost), cell, _money(sum((i['amt'] for i in rows), Decimal('0')))))
+        out.append('<tr style="background:#dfe7f1"><td colspan="3" style="%s;text-align:right;font-weight:bold">Job %s total</td>'
+                   '<td style="%s;text-align:right;font-weight:bold">%s</td></tr>' % (cell, _h(job), cell, _money(job_total)))
+    if show_grand:
+        out.append('<tr style="background:#222;color:#fff"><td colspan="3" style="%s;text-align:right;font-weight:bold">Total, all jobs</td>'
+                   '<td style="%s;text-align:right;font-weight:bold">%s</td></tr>' % (cell, cell, _money(grand)))
     return ''.join(out) + '</table>'
+
+
+def _page(title, subtitle, table):
+    return ('<div style="font-family:Arial,Helvetica,sans-serif;color:#222">'
+            '<h2 style="margin:0 0 2px 0;font-size:18px">%s</h2><p style="margin:0 0 12px 0;color:#666;font-size:12px">%s</p>%s'
+            '<p style="margin-top:10px;color:#777;font-size:11px">Credits are negative. A split charge appears at its share.</p></div>'
+            % (_h(title), subtitle, table))
 
 
 def _entries(t, splits):
@@ -163,7 +193,7 @@ def main(input):
 
     rows = months[chosen]
     version = 1 + max([_ver(e['version']) for t in rows for e in _entries(t, splits) if e['sent']] or [0])
-    groups, by_holder, by_job = {}, {}, {}
+    groups, cover_lines = {}, []
     mark, mark_splits = [], []
     month_total = Decimal('0')
     for t in sorted(rows, key=lambda r: (_s(r.get('transaction_date')), _s(r.get('transaction_id')))):
@@ -178,15 +208,13 @@ def main(input):
                 'transaction_date': _s(t.get('transaction_date')), 'merchant': _s(t.get('merchant')),
                 'amount': '%.2f' % e['amount'], 'cost_code': e['cost_code'], 'split_note': e['split_note'],
                 'cardholder_name': holder, 'receipt_number': receipts.get(rid, '') if rid else 'Not required (exempt)',
-                'receipt_id': rid, 'no_receipt_needed': not rid, 'is_new': True, 'status': 'Month v%d' % version,
+                'receipt_id': rid, 'no_receipt_needed': not rid, 'is_new': True, 'status': 'Included',
                 'previous_version': '', '_amt': e['amount']})
             if rid and rid not in g['receipt_ids']:
                 g['receipt_ids'].append(rid)
-            key = (holder, job)
-            n, a = by_holder.get(key, (0, Decimal('0')))
-            by_holder[key] = (n + 1, a + e['amount'])
-            n, a = by_job.get(job, (0, Decimal('0')))
-            by_job[job] = (n + 1, a + e['amount'])
+            note = e['split_note'] or ('exempt, no receipt' if not rid else '')
+            cover_lines.append({'job': job, 'cost': e['cost_code'], 'date': _s(t.get('transaction_date')),
+                          'name': _s(t.get('merchant')), 'holder': holder, 'amt': e['amount'], 'note': note})
             (mark_splits if e['table'] == 'splits' else mark).append({'record_id': e['record_id'], 'transaction_id': _s(t.get('transaction_id'))})
 
     label = _month_name(chosen)
@@ -199,42 +227,22 @@ def main(input):
         lines = ['- %s | %s | %s | %s' % (i['transaction_id'], i['transaction_date'], i['merchant'], i['amount']) for i in g['items']]
         out_groups.append({
             'group_key': chosen + '|' + job, 'receipt_month': chosen, 'project_code': job, 'version': version,
-            'file_name': 'Finance_Package_%s_%s_v%d.pdf' % (_safe(chosen), _safe(job), version),
+            'file_name': 'Finance_Package_%s_%s.pdf' % (_safe(chosen), _safe(job)),
             'new_count': len(g['items']), 'previous_count': 0, 'total_count': len(g['items']),
             'new_total': '%.2f' % total, 'previous_total': '0.00', 'grand_total': '%.2f' % total,
             'changes_text': '\n'.join(lines),
             'changes_html': '<ul>' + ''.join('<li>%s</li>' % _h(x[2:]) for x in lines) + '</ul>',
             'receipt_ids': g['receipt_ids'], 'transactions': g['items'],
+            'cover_html': _page('Job %s - %s' % (job, label), 'Credit card charges &nbsp;|&nbsp; Prepared %s' % _h(today), _grouped([x for x in cover_lines if x['job'] == job], False)),
             'new_transactions': [{k: i[k] for k in ('record_id', 'table', 'transaction_id', 'transaction_date', 'merchant',
                                                     'amount', 'cost_code', 'receipt_id')} for i in g['items']],
         })
 
-    holder_rows, bold = [], []
-    for holder in sorted(set(h for h, _ in by_holder)):
-        sub_n, sub_a = 0, Decimal('0')
-        for job in sorted(j for h, j in by_holder if h == holder):
-            n, a = by_holder[(holder, job)]
-            holder_rows.append([holder, job, str(n), _money(a)])
-            sub_n, sub_a = sub_n + n, sub_a + a
-        bold.append(len(holder_rows))
-        holder_rows.append([holder + ' total', '', str(sub_n), _money(sub_a)])
-    bold.append(len(holder_rows))
-    holder_rows.append(['All cardholders', '', str(sum(n for n, _ in by_holder.values())), _money(month_total)])
-    job_rows = [[job, str(by_job[job][0]), _money(by_job[job][1])] for job in sorted(by_job)]
-    job_rows.append(['All jobs', str(sum(n for n, _ in by_job.values())), _money(month_total)])
-    summary = (
-        '<div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#222;max-width:800px">'
-        '<h2 style="margin:0 0 4px 0">Credit card summary - %s</h2>'
-        '<p style="margin:0 0 16px 0;color:#555">Statement month %s &nbsp;|&nbsp; Version %d &nbsp;|&nbsp; Generated %s'
-        ' &nbsp;|&nbsp; %d job package%s attached</p>'
-        '<h3 style="margin:16px 0 6px 0">By cardholder and job</h3>%s'
-        '<h3 style="margin:16px 0 6px 0">By job</h3>%s'
-        '<p style="margin-top:16px;color:#555">Every charge on the month\'s statements is included, with a receipt or marked'
-        ' exempt, and coded. Credits are negative. Split charges count in each job at their share.</p></div>'
-        % (_h(label), _h(chosen), version, _h(today), len(out_groups), '' if len(out_groups) == 1 else 's',
-           _table(['Cardholder', 'Job', 'Charges', 'Total'], holder_rows, right=(2, 3), bold_rows=tuple(bold)),
-           _table(['Job', 'Charges', 'Total'], job_rows, right=(1, 2), bold_rows=(len(job_rows) - 1,))))
+    summary = _page('Credit card summary - %s' % label,
+                    'Statement month %s &nbsp;|&nbsp; Prepared %s &nbsp;|&nbsp; %d job package%s attached'
+                    % (_h(chosen), _h(today), len(out_groups), '' if len(out_groups) == 1 else 's'),
+                    _grouped(cover_lines, True))
     return dict(empty, ready=True, statement_month=chosen, month_label=label, version=version, groups=out_groups,
                 group_count=len(out_groups), summary_html=summary, month_total='%.2f' % month_total,
-                summary_file_name='Card_Summary_%s_v%d' % (_safe(chosen), version),
+                summary_file_name='Card_Summary_%s' % _safe(chosen),
                 mark_sent=mark, mark_sent_splits=mark_splits)
