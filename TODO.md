@@ -55,10 +55,10 @@ The fixes that block testing, with editor steps, are in the design record's
 - [ ] **Charge Form once Item Complete stops emailing it** — attach it to the finance
       package, or drop it. Decide before step 6 of that build.
 
-- [ ] **Receipts in the packages: files in lists** — step 15's filter fixed with
-      `receipt_ids_text` (2026-11-05); the merge then failed at offset 352, a PDF cut short in a
-      text field of a list variable. Encode files going into `package_files` and `month_files`,
-      decode at the merge and the email (design record, "Files in list variables"). Untested.
+- [ ] **Receipts in the packages: merge from the search** — step 15 fixed with
+      `receipt_ids_text`; receipt files are streams, which a list cannot hold or a formula encode.
+      Merge the Receipts search's records directly, then the cover with that (design record,
+      "Files in list variables"). Untested.
 - [ ] **Deploy the simpler covers** — design record, "Simpler covers", steps 1-3.
 - [ ] **A month can close before every card's statement is in** — it closes on the statements
       loaded, so a cardholder whose statement has not arrived yet is not noticed. A list

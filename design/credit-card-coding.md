@@ -603,11 +603,15 @@ commas; map it into the filter with no formula. Should the *in* filter not take 
 text, the fallback is a loop over the IDs with one equals-search each.
 
 **Files in list variables (2026-11-05).** With the Receipts search fixed, the merge failed:
-"End-of-File, expected line at offset 352". The lists holding files (`package_files`,
-`month_files`) have text fields, and a PDF's binary bytes put in one are cut short. Files go into
-the lists base64-encoded and are decoded where used: `.encode_base64` on the receipt, converted
-image, cover, job PDF and summary as they are added; `.decode_base64` on the Merge PDF input and on
-the email attachment. Should Outlook want an attachment in base64, the email's decode comes off.
+"End-of-File, expected line at offset 352". A receipt read from the Receipts table is a **stream**,
+not a value: putting it in a list variable's text field cut it short, and a formula cannot encode
+it ("no method 'encode_base64' for (input stream)"). So receipts never pass through a list: the
+first Merge PDF takes the Receipts search's records directly, each record's `receipt_file` file
+content as is, and a second Merge PDF joins the cover and that result. `package_files` keeps
+only which receipts were found, for the split step. Files that are values - a converted PDF, the
+merged job PDF, the summary - go into `month_files` base64-encoded and are decoded for the email
+attachment; should Outlook want base64, that decode comes off. Receipts are stored as PDFs, the
+intake converting images first; one stored as an image would fail the receipts merge.
 
 **Cover styles (2026-11-05).** Four styles, none in colour - `minimal` (the default and the one in use, owner 2026-11-05: black
 rules, no fill), `ledger` (hairlines, fixed-width figures, double rule under the total), `banded` (grey
