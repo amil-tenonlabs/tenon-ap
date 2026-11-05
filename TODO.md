@@ -41,9 +41,11 @@ The fixes that block testing, with editor steps, are in the design record's
       the job as `reason` and no `project_code`. FNC-001 step 4's field descriptions
       ask for a "project code"; say a project is a job name or number, and the reason
       is the purpose of the purchase.
-- [ ] **Image receipts dropped** (5) — the fix is built in the repo: images converted to
-      PDF only for HEIC and TIFF, every receipt read by AI by Workato's Analyze image.
-      Workato side: design record, "Reading receipts with AI by Workato", steps 1-3.
+- [ ] **Image receipts dropped** (5) — being built in Workato on the Claude connector, images
+      converted to PDF first: design record, "Reading receipts with Claude".
+- [ ] **Ask the APM chat for image blocks in the Claude connector's Send message** — encode any
+      raw file, and send image/png, jpeg, gif and webp as `image` blocks. Removes the PDF
+      conversion and reads phone screenshots at full resolution. Handoff not yet written.
 - [ ] **Build coding after the receipt** — replies, the coding sheet, history and
       5-minute batched email, decided 2026-11-04 and built in the repo; the Workato
       side is the design record's "Coding after the receipt", steps 1-8, in order.
@@ -52,6 +54,16 @@ The fixes that block testing, with editor steps, are in the design record's
       after the coding build.
 - [ ] **Charge Form once Item Complete stops emailing it** — attach it to the finance
       package, or drop it. Decide before step 6 of that build.
+
+- [ ] **Finish the month package** — built by AIRO *(export 11-05)*; still to do: paste
+      `month_close.py` into step 7 and the updated `split_finance_package.py` into step 32 (both
+      still hold the old code, so the run stops at step 9 and packages would be covers only); render
+      the summary from `summary_html` instead of the empty Finance Package Cover (steps 45-46);
+      delete step 6 and step 50, which point at Transactions until a Splits table exists. On the
+      exported data October closes: 14 charges, all complete.
+- [ ] **A month can close before every card's statement is in** — it closes on the statements
+      loaded, so a cardholder whose statement has not arrived yet is not noticed. A list
+      of expected cards in Card Holders would let the close wait for every one.
 
 ## 2. Credit card coding: wrong in some cases
 

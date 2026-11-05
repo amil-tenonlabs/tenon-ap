@@ -64,7 +64,7 @@ def main(input):
     included, held = [], []
     for t in txns:
         rid = _s(t.get('receipt_id'))
-        if rid and rid in inc:
+        if (rid and rid in inc) or (not rid and t.get('no_receipt_needed') is True):
             included.append(t)
             continue
         held.append(t)
@@ -123,7 +123,7 @@ def main(input):
         [[f['receipt_number'] or f['receipt_id'], f['merchant'] or '-', f['amount'] or '-', f['file_name'] or '-', f['reason'], f['held_back_transactions']] for f in flagged_list]) if flagged_list else ''
 
     file_count = len(included_ids)
-    send = len(new_inc) > 0 and file_count > 0
+    send = len(new_inc) > 0 and (file_count > 0 or all(t.get('no_receipt_needed') is True for t in new_inc))
     log = 'Included files: %d | included transactions: %d (%d new) | excluded receipts: %d | held-back transactions: %d (%d new, stay unsent) | send package: %s' % (file_count, len(included), len(new_inc), len(flagged_list), len(held), len(held_new), 'YES' if send else 'NO (no new transaction with a usable receipt file)')
     if flagged_list:
         log += '\nFLAGGED receipts:\n' + flagged_text
@@ -131,6 +131,7 @@ def main(input):
     keys = ('record_id', 'table', 'transaction_id', 'transaction_date', 'merchant', 'split_note', 'amount', 'cost_code', 'cardholder_name', 'receipt_number', 'status', 'is_new')
     return {
         'send_package': send,
+        'has_files': file_count > 0,
         'included_file_count': file_count,
         'included_count': len(included),
         'included_total': '%.2f' % sum(_amt(t.get('amount')) for t in included),

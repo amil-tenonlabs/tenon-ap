@@ -1,0 +1,3 @@
+[
+ {"control_type": "text-area", "label": "Summary html", "name": "summary_html", "optional": true, "type": "string"}
+]

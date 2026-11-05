@@ -112,6 +112,7 @@ vendors go wherever that GC's records live.
 python3 tests/test_credit_card.py   # statement parser, open items, finance package grouping
 python3 tests/test_coding.py        # replies, the coding sheet, history, batched email
 python3 tests/test_read_receipt.py  # the AI's reading of a receipt, checked before it is logged
+python3 tests/test_month_close.py   # a statement month goes to finance only when complete
 ```
 
 Each test builds its fixture in memory and exits non-zero on failure;

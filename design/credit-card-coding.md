@@ -151,8 +151,8 @@ None is fixed. Most live in recipe steps rather than in the repo's files.
 
 **Other**
 
-- The AI steps use AI by Workato (`open_ai_utility` in the export), not the Claude
-  connector APM uses. Kept for receipts too (owner, 2026-11-04).
+- The intake's classifier uses AI by Workato (`open_ai_utility` in the export). Receipts are
+  read by the Claude connector (2026-11-05).
 - Both daily recipes run at 08:00 UTC — 3 or 4 AM in New York.
 - `cardholder_email` on Transactions is never written; the digest resolves the address
   each run through FNC-003.
@@ -452,71 +452,132 @@ section; checks pass, needs testing in Workato.
    `sent_in_package`, `package_version_sent` and `sent_date` values. Step 28's inputs are
    unchanged; the items it receives now carry `table`, `cost_code` and `split_note`.
 
-## Reading receipts with AI by Workato: photos, scans and PDFs
+## Reading receipts with Claude: photos, scans, screenshots and PDFs
 
-Decided by the owner (2026-11-04): AI by Workato, not the Claude connector, reads receipts.
-Fixes finding 5. Built in the repo, not in Workato; checks pass (`tests/test_read_receipt.py`),
-needs testing in Workato.
+Fixes finding 5. Built in the repo; in Workato from 2026-11-05 on the Claude connector (AI by
+Workato's Analyze image was tried first and returned "No results found" on a screenshot printed
+to PDF). Checks pass (`tests/test_read_receipt.py`); being tested in Workato.
 
-**Why this way.** AI by Workato's **Analyze image** action answers a question about an image or
-a PDF - png, jpg, jpeg, webp, gif or pdf, up to 20 MB, a PDF up to 15 pages, per Workato's docs
-as searched 2026-11-04 (the page itself could not be read from here, so check the field names
-in the editor). It is the connector the recipes already use for AI, so no other connection is
-needed. Every receipt, text PDF or photo, goes through it, so there is one path, and it reads the
-email's coding and splits in the same call. A photo needs no conversion; HEIC and TIFF, which it
-does not take, are converted to PDF first.
+**Why this way.** The Claude connector's Send message wraps every file in a `document` block,
+which takes a PDF, and encodes only a raw PDF to base64 - a raw JPG fails at the request with
+`"\xFF" from ASCII-8BIT to UTF-8`, and a base64 JPG would be refused as a document. Claude reads a
+PDF's pages as images, so an image converted to a one-page PDF is read; PDF tools already
+converts images in RCP-003. Sending images directly needs a connector change - see
+`TODO.md`, an image block in Send message - which would also read tall phone screenshots at
+full resolution instead of shrunk onto a letter page. Claude reads every receipt, text PDF or
+photo, and the email's coding and splits, in one call.
 
 **The rules**
 
-- An attachment that is an image (jpg, jpeg, png, gif, webp, heic, heif, tif, tiff) and not
-  inline is a receipt candidate, sent straight to FNC-001, never through the classifier, which
-  sees only a file name. Inline images are signatures and logos and are skipped.
-- The question (`read_receipt_prompt.txt`) asks for one JSON object; `read_receipt.py` checks the
-  answer. An answer that is not that object logs nothing. `is_receipt` false (a logo, a photo of
-  something else) logs nothing and tells the sender what it saw. A total that cannot be read is
-  blank, never zero, and the sender is asked for a clearer copy; the receipt is still logged with
-  its file.
-- The amount is the final total charged - tax, tip and fees in, discounts out; a handwritten tip
-  and total on a restaurant slip win over the printed subtotal.
-- A year that is not printed is left blank, not guessed.
-- The email body is data, not instructions: the question says so.
-- The receipt is stored as received. RCP-003 already turns an image into a PDF for the package.
+- What counts as a receipt (`read_receipt_prompt.txt`): anything from a seller that shows what
+  was charged - a receipt, invoice or order confirmation; a seller's statement for a period (an
+  Uber for Business monthly statement is the receipt for the one card charge that pays it); and
+  screenshots or printouts of any of these, App Store purchase screens included. Not the card
+  issuer's own statement. When it is not a receipt, `notes` says what it is.
+- A seller's statement is dated by its card charge or auto-payment date, else its issue date, and
+  its amount is the total charged, never the previous balance.
+- A screen listing several purchases describes the one the email names; else the amount is left
+  blank and the purchases are listed in `notes`.
+- An app store purchase's merchant is the store, which is what bills the card.
+- `read_receipt.py` checks the answer: not the JSON object, or not a receipt, logs nothing; an
+  unreadable total is blank, never zero; a date with no year is not guessed. The answer may come
+  in a code fence.
+- The receipt is stored as received; RCP-003 turns an image into a PDF for the package.
 
-**Build**
+**Build (FNC-001, first steps inside the Try)**
 
-1. **Email Intake.** Add an **Else if** to step 5 (the statement-file IF), above its Else:
-   - Condition: `['jpg','jpeg','png','gif','webp','heic','heif','tif','tiff'].include?(Name.to_s.downcase.split('.').last)`
-     is true, AND `IsInline` is not true.
-   - IF the extension is heic, heif, tif or tiff: PDF tools **Convert to PDF**, file format
-     `image`, source file = `ContentBytes.to_s.gsub(/\s/, '').match?(/\A[A-Za-z0-9+\/]+={0,2}\z/) ? ContentBytes.to_s.gsub(/\s/, '').decode_base64 : ContentBytes`,
-     output name = `Name.to_s.sub(/\.[^.]+\z/, '')`, in a Try; on error, email the sender
-     "[CC] Could not read " + Name + " - please send it as a PDF or a JPG". Call FNC-001 with the
-     converted file's contents `.encode_base64` and the name with `.pdf`.
-   - Otherwise call FNC-001 as step 18 does, with the attachment as it is.
-   - Step 17's receipt condition gains AND the name ends `.pdf`, so a file the classifier calls a
-     receipt but no reader can open is skipped.
-2. **FNC-001.** Insert, as the first steps inside the Try:
-   - AI by Workato **Analyze image**. File: the trigger's `attachment_content.decode_base64`, and
-     the file name or type from `attachment_name` if the action asks for one. Question:
-     `read_receipt_prompt.txt` - paste the text, then replace `{{attachment_name}}` with the
-     trigger's `attachment_name` pill and `{{email_body}}` with
-     `email_body.presence || '(none)'`. If the action offers structured output fields, leave
-     them off: the JSON answer is checked by the next step.
-   - Execute Python code, `read_receipt.py`: input `response_text` = Analyze image's answer;
-     outputs `ok`, `is_receipt` (boolean), `merchant`, `receipt_date`, `receipt_month`, `amount`
-     (number), `currency`, `card_last_4`, `receipt_number`, `project_code`, `cost_code`,
-     `reason`, `split_text`, `notes`, `problems`.
-   - IF `ok` is not true OR `is_receipt` is not true: email the sender "[CC] Not read as a
-     receipt: " + `attachment_name`, body `notes` or `problems`; Return result `status`
-     `not_receipt`, `matched` false. (Once Notifications exists, queue a `problem` instead.)
-   - Re-point every pill that read the old AI step to the Python step: step 5's nine fields
-     (receipt_number, receipt_date in its formula, merchant, amount, currency, card_last4 in its
-     formula, project_code, cost_code, reason) and step 6's amount filter. Then delete the old
-     extract-text and Parse text steps; Workato refuses if anything still reads them.
-   - IF `problems` is present after logging: email the sender "[CC] Receipt received - please
-     check " + `attachment_name` with `problems`. It is still matched as usual.
-3. Test with one phone photo of a receipt, one scanned PDF, one text PDF and one email signature
-   image: three logged and one skipped. Check one restaurant slip with a handwritten tip.
+1. IF `['jpg','jpeg','png','gif','webp','heic','heif','tif','tiff'].include?(attachment_name.to_s.downcase.split('.').last)`
+   is true: PDF tools **Convert to PDF**, file format `image`, source file
+   `attachment_content.decode_base64`, output name `attachment_name.to_s.sub(/\.[^.]+\z/, '')`.
+   Whether PDF tools takes HEIC is unconfirmed.
+2. After the IF, Claude **Send message**: System prompt = `read_receipt_prompt.txt` up to and not
+   including `FILE NAME:`, pasted whole; User message = `FILE NAME: ` + `attachment_name`, a blank
+   line, `EMAIL BODY:`, then `email_body` (or `(none)`); Document (base64) =
+   `[Convert to PDF file contents].presence || attachment_content`; media type
+   `application/pdf`; Max tokens 1024.
+3. Execute Python code, `read_receipt.py`: input `response_text` = Send message's Response text;
+   outputs `ok`, `is_receipt` (boolean), `merchant`, `receipt_date`, `receipt_month`, `amount`
+   (number), `currency`, `card_last_4`, `receipt_number`, `project_code`, `cost_code`, `reason`,
+   `split_text`, `notes`, `problems`.
+4. IF `ok` is not true OR `is_receipt` is not true: email the sender "[CC] Not read as a receipt:
+   " + `attachment_name`, body `notes` or `problems`; Return result `status` `not_receipt`,
+   `matched` false.
+5. Re-point step "Add record"'s nine fields and "Search Transactions"' amount filter to the Python
+   step; delete the old extract-text and Parse text steps.
+6. Email Intake: route non-inline images to FNC-001 (an Else if on step 5, as the image list in 1
+   AND `IsInline` is not true), and add AND the name ends `.pdf` to step 17's receipt condition.
+
+## The month package: a summary cover and one package per job
+
+Decided by the owner (2026-11-05): packages follow the **statement month**, so totals tie to the
+card statements; a month goes to finance only when it is **complete**; and it goes as **one
+email** holding a summary cover and one PDF per job. Built in the repo (`month_close.py`,
+`templates/card_summary.html`); checks pass (`tests/test_month_close.py`), needs testing in
+Workato. It replaces the daily per-group packages, and with them `group_finance_package.py`.
+
+**The rules**
+
+- A charge is complete when it has a matched receipt that is on file, or is exempt, and is coded
+  - project, cost code and reason, or for a split every share, the shares adding up to the
+  charge. Coding from history counts from the day after it was applied.
+- A statement month goes when every charge on it is complete and at least one is unsent. One
+  open charge holds the whole month; the daily digest keeps chasing it. A complete month goes
+  even while an earlier one is open. One month per run, the oldest first.
+- The summary cover lists each cardholder's total by job, each cardholder's total, the total by
+  job, and the month's total - every charge, credits negative, split shares in each of their
+  jobs.
+- One package per job: the existing cover (`finance_package_cover.html`, its Month the statement
+  month) and the job's receipts. An exempt charge is listed with "Not required (exempt)" and no
+  file; a job of exempt charges only is its cover alone.
+- A receipt file that cannot be used (none attached, an image that will not convert) holds the
+  month too: nothing is sent, and the problem is emailed instead.
+- A month changed after it was sent - a re-sent statement adding a row - goes again whole, as the
+  next version, once complete.
+
+**Build (RCP-003, Daily Finance Package)**
+
+The same steps, written for Workato's AIRO, are in `credit-card-coding/airo_month_package.txt`;
+paste the two Python steps' code by hand.
+
+Steps as the editor shows them in the 2026-11-04 (second) export.
+
+1. **Template** "Card Summary": `templates/card_summary.html`, one input `summary_html`.
+2. **Splits table** from the Splits build, if not built yet (an empty table is fine).
+3. Step 4 (Search Transactions): remove the `matched` filter - the month needs every charge.
+   Keep limit 1000 (finding 10 still applies).
+4. After step 5 (Search Receipts): Search records, Splits, limit 1000, field name to value.
+5. Step 6: paste `month_close.py`. Inputs: `transactions_json` = step 4's Records `.to_json`;
+   `receipts_json` = step 5's Records `.pluck('Record ID', 'receipt_number').to_json`;
+   `splits_json` = the Splits Records `.to_json`; `today` = `today.strftime('%Y-%m-%d')`.
+   Append outputs, never regenerate: `ready` (boolean), `statement_month`, `month_label`,
+   `version` (integer), `group_count` (integer), `summary_html`, `summary_file_name`,
+   `month_total`, `status_log`, `blocker_count` (integer), `mark_sent` and `mark_sent_splits`
+   (lists: `record_id`, `transaction_id`), `blockers` (list: `cardholder_name`,
+   `transaction_id`, `transaction_date`, `merchant`, `amount`, `missing`); and in `groups` →
+   `transactions` and `new_transactions`: `table`, `cost_code`, `split_note`,
+   `no_receipt_needed` (boolean). `groups` keeps its other fields.
+6. Step 7's log: `status_log`. Step 8's IF becomes `ready` is not true → Stop (no error), reason
+   `status_log` + the first few `blockers`.
+7. Before step 10's loop: Create list `month_files` (`file_name`, `file_contents`); Create
+   variable `month_complete` (boolean, true); Create list `month_flags` (`text`).
+8. Step 28: paste the updated `split_finance_package.py`; append output `has_files` (boolean).
+9. After step 29: IF `held_back_count` > 0 → Update `month_complete` false; add `flagged_text` to
+   `month_flags`.
+10. Inside step 30 (IF `send_package`): keep 31-33; make 34 (merge) run only IF `has_files`;
+    replace 35 (send email) with Add to list `month_files`: the merged PDF, or step 32's cover
+    PDF when there are no files, named `file_name`; delete 36 (mark sent) from the loop.
+11. After the loop: IF `month_complete`:
+    - Create document, "Card Summary", `summary_html`; Convert to PDF, named
+      `summary_file_name`.
+    - Send email to finance: subject `[CC] Credit card package ` + `month_label` + ` v` +
+      `version` + ` - ` + `group_count` + ` jobs, $` + `month_total`; attachments: the summary
+      PDF, then every `month_files` item.
+    - Update records batch, Transactions, from `mark_sent`: `sent_in_package` true,
+      `package_version_sent` = `version`, `sent_date` now. The same on Splits from
+      `mark_sent_splits`.
+    - ELSE: Log, and email the tester "[CC] " + `month_label` + " not sent: receipt files could
+      not be used", body the `month_flags` joined.
+12. Run it from the editor once all of the month is in.
 
 ## Open decisions
 
