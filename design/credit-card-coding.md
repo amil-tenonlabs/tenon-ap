@@ -534,8 +534,10 @@ Workato. It replaces the daily per-group packages, and with them `group_finance_
   file; a job of exempt charges only is its cover alone.
 - A receipt file that cannot be used (none attached, an image that will not convert) holds the
   month too: nothing is sent, and the problem is emailed instead.
-- A month changed after it was sent - a re-sent statement adding a row - goes again whole, as the
-  next version, once complete.
+- No versions (owner, 2026-11-05): no document is created until every charge in the month is
+  complete, and file names, covers and the email carry no version. A month changed after it was
+  sent - a re-sent statement adding a row - goes again whole, under the same names, once complete.
+  `version` stays an output only because the step marking charges sent reads it.
 
 **Build (RCP-003, Daily Finance Package)**
 
@@ -572,9 +574,9 @@ Steps as the editor shows them in the 2026-11-04 (second) export.
 11. After the loop: IF `month_complete`:
     - Create document, "Card Summary", `summary_html`; Convert to PDF, named
       `summary_file_name`.
-    - Send email to finance: subject `[CC] Credit card package ` + `month_label` + ` v` +
-      `version` + ` - ` + `group_count` + ` jobs, $` + `month_total`; attachments: the summary
-      PDF, then every `month_files` item.
+    - Send email to finance: subject `[CC] Credit card package ` + `month_label` + ` - ` +
+      `group_count` + ` jobs, $` + `month_total`; attachments: the summary PDF, then every
+      `month_files` item.
     - Update records batch, Transactions, from `mark_sent`: `sent_in_package` true,
       `package_version_sent` = `version`, `sent_date` now. The same on Splits from
       `mark_sent_splits`.

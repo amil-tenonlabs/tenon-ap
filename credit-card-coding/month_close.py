@@ -208,7 +208,7 @@ def main(input):
                 'transaction_date': _s(t.get('transaction_date')), 'merchant': _s(t.get('merchant')),
                 'amount': '%.2f' % e['amount'], 'cost_code': e['cost_code'], 'split_note': e['split_note'],
                 'cardholder_name': holder, 'receipt_number': receipts.get(rid, '') if rid else 'Not required (exempt)',
-                'receipt_id': rid, 'no_receipt_needed': not rid, 'is_new': True, 'status': 'Month v%d' % version,
+                'receipt_id': rid, 'no_receipt_needed': not rid, 'is_new': True, 'status': 'Included',
                 'previous_version': '', '_amt': e['amount']})
             if rid and rid not in g['receipt_ids']:
                 g['receipt_ids'].append(rid)
@@ -227,23 +227,22 @@ def main(input):
         lines = ['- %s | %s | %s | %s' % (i['transaction_id'], i['transaction_date'], i['merchant'], i['amount']) for i in g['items']]
         out_groups.append({
             'group_key': chosen + '|' + job, 'receipt_month': chosen, 'project_code': job, 'version': version,
-            'file_name': 'Finance_Package_%s_%s_v%d.pdf' % (_safe(chosen), _safe(job), version),
+            'file_name': 'Finance_Package_%s_%s.pdf' % (_safe(chosen), _safe(job)),
             'new_count': len(g['items']), 'previous_count': 0, 'total_count': len(g['items']),
             'new_total': '%.2f' % total, 'previous_total': '0.00', 'grand_total': '%.2f' % total,
             'changes_text': '\n'.join(lines),
             'changes_html': '<ul>' + ''.join('<li>%s</li>' % _h(x[2:]) for x in lines) + '</ul>',
             'receipt_ids': g['receipt_ids'], 'transactions': g['items'],
-            'cover_html': _page('Job %s - %s' % (job, label), 'Credit card charges &nbsp;|&nbsp; Version %d &nbsp;|&nbsp; %s'
-                                % (version, _h(today)), _grouped([x for x in cover_lines if x['job'] == job], False)),
+            'cover_html': _page('Job %s - %s' % (job, label), 'Credit card charges &nbsp;|&nbsp; Prepared %s' % _h(today), _grouped([x for x in cover_lines if x['job'] == job], False)),
             'new_transactions': [{k: i[k] for k in ('record_id', 'table', 'transaction_id', 'transaction_date', 'merchant',
                                                     'amount', 'cost_code', 'receipt_id')} for i in g['items']],
         })
 
     summary = _page('Credit card summary - %s' % label,
-                    'Statement month %s &nbsp;|&nbsp; Version %d &nbsp;|&nbsp; %s &nbsp;|&nbsp; %d job package%s attached'
-                    % (_h(chosen), version, _h(today), len(out_groups), '' if len(out_groups) == 1 else 's'),
+                    'Statement month %s &nbsp;|&nbsp; Prepared %s &nbsp;|&nbsp; %d job package%s attached'
+                    % (_h(chosen), _h(today), len(out_groups), '' if len(out_groups) == 1 else 's'),
                     _grouped(cover_lines, True))
     return dict(empty, ready=True, statement_month=chosen, month_label=label, version=version, groups=out_groups,
                 group_count=len(out_groups), summary_html=summary, month_total='%.2f' % month_total,
-                summary_file_name='Card_Summary_%s_v%d' % (_safe(chosen), version),
+                summary_file_name='Card_Summary_%s' % _safe(chosen),
                 mark_sent=mark, mark_sent_splits=mark_splits)
