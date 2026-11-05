@@ -584,6 +584,25 @@ Steps as the editor shows them in the 2026-11-04 (second) export.
       not be used", body the `month_flags` joined.
 12. Run it from the editor once all of the month is in.
 
+**One package per cardholder per month (2026-11-05).** Owner: "these reports will always be grouped
+by month and cardholder so no need to have a column for either". A package is one cardholder's
+statement month: a summary cover of their jobs and one PDF per job, each headed with the month, the
+cardholder and the card's last four digits, with no Cardholder or Month column - Date, Transaction,
+Amount. Completeness is per package: one cardholder's open charge holds only their month. One
+package per run, the oldest month first, then by cardholder, so with several cardholders run the
+recipe hourly rather than daily - a run with nothing ready stops at once. Files are named
+`Card_Summary_<month>_<cardholder>` and `Finance_Package_<month>_<cardholder>_<job>.pdf`.
+"Close the statement month" gains two outputs, `cardholder_name` and `card_last4`; add
+`cardholder_name` to the email subject after `month_label`.
+
+**Cover styles (2026-11-05).** Four styles, none in colour - `minimal` (the default and the one in use, owner 2026-11-05: black
+rules, no fill), `ledger` (hairlines, fixed-width figures, double rule under the total), `banded` (grey
+bands) and `classic` (serif). "Close the statement month" takes an optional input `style`; blank
+or unknown is `minimal`. A cover whose charges are all one cardholder's names them in its header
+and has no Cardholder column (owner: "the card holder is always the same in a package"); the
+summary keeps the column whenever it holds more than one. A job's cover does not repeat its job
+as a heading row.
+
 **Simpler covers (2026-11-05), on top of the build above**
 
 1. Step "Close the statement month": paste `month_close.py`; append to `groups` the output field
