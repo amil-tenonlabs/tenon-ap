@@ -536,6 +536,9 @@ Workato. It replaces the daily per-group packages, and with them `group_finance_
 
 **Build (RCP-003, Daily Finance Package)**
 
+The same steps, written for Workato's AIRO, are in `credit-card-coding/airo_month_package.txt`;
+paste the two Python steps' code by hand.
+
 Steps as the editor shows them in the 2026-11-04 (second) export.
 
 1. **Template** "Card Summary": `templates/card_summary.html`, one input `summary_html`.

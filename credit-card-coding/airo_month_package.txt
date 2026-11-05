@@ -1,0 +1,71 @@
+Update the recipe "Daily Finance Package by Month and Project Code" in the Credit Card Coding project. Change only this recipe, the data tables and the one new message template below. Do not change any other recipe.
+
+GOAL
+Once a card statement month is complete, send finance ONE email containing a summary cover PDF (totals by cardholder and job) plus one PDF package per job. If the month is not complete, send nothing and stop.
+
+RULES FOR THIS CHANGE
+- Keep the existing receipt-file steps inside the group loop (search the group's receipts, PDF as-is, image converted to PDF, missing or unsupported files excluded and flagged) exactly as they are.
+- Keep the "Finance Package Cover" template and its mappings as they are.
+- Two "Execute Python code" steps get new code. I will paste the code myself. Set up their input fields as listed, and ADD the listed output fields to the existing ones. Never delete, rename or regenerate an existing output field.
+- Leave the Try/Catch error handling around the whole flow as it is.
+
+1. NEW MESSAGE TEMPLATE "Card Summary"
+   One input field: summary_html (text). Body: a full HTML page whose body contains only {{{summary_html}}} (three braces, so the HTML is not escaped).
+
+2. DATA TABLE "Splits" (create it if it does not exist)
+   Columns: transaction_id, project_code, cost_code, reason (short text), amount (number), sent_in_package (boolean), package_version_sent (short text), sent_date (date-time).
+
+3. "Search records" on Transactions (the first search)
+   Remove the filter "matched is true" so it returns every transaction. Keep limit 1000, output format field name to value.
+
+4. After the "Search records" on Receipts, add "Search records" on Splits
+   No filter, limit 1000, output format field name to value.
+
+5. The "Execute Python code" step that groups transactions (currently "Group new transactions by receipt month and project code")
+   Rename it "Close the statement month". Inputs:
+   - transactions_json = the Transactions search records, formula .to_json
+   - receipts_json = the Receipts search records, formula .pluck('Record ID', 'receipt_number').to_json
+   - splits_json = the Splits search records, formula .to_json
+   - today = formula today.strftime('%Y-%m-%d')
+   Add these output fields:
+   - ready (boolean), statement_month, month_label, summary_html, summary_file_name, month_total, status_log (strings), version, group_count, blocker_count (integers)
+   - mark_sent (list of objects: record_id, transaction_id)
+   - mark_sent_splits (list of objects: record_id, transaction_id)
+   - blockers (list of objects: cardholder_name, transaction_id, transaction_date, merchant, amount, missing)
+   - inside groups > transactions and groups > new_transactions, add: table, cost_code, split_note (strings), no_receipt_needed (boolean)
+
+6. The log step right after it
+   Message: "Month close: " + status_log
+
+7. The IF that stops when there is nothing new
+   Change the condition to: ready is not true. Inside: Stop job without error, reason: status_log.
+
+8. Before the group loop, add
+   - Create list "month_files" with fields file_name (string) and file_contents (file)
+   - Create variable "month_complete", boolean, value true
+   - Create list "month_flags" with one field text (string)
+
+9. The "Execute Python code" step inside the loop ("Split group into included vs held-back transactions")
+   Keep its inputs. Add one output field: has_files (boolean).
+
+10. Right after that step's log step, add an IF: held_back_count is greater than 0
+    Inside: update month_complete to false, and add flagged_text to month_flags.
+
+11. Inside the existing IF on send_package
+    - Keep the cover template, the HTML-to-PDF conversion and the step that puts the cover first in package_files.
+    - Run the "Merge PDF" step only when has_files is true.
+    - Replace the "Send email" step with "Add item to list" month_files: file_name = the group's file_name; file_contents = the merged PDF when has_files is true, otherwise the cover PDF.
+    - Delete the "Update records" step that marks transactions sent. It moves to step 12.
+
+12. After the group loop (still inside the Try), add an IF: month_complete is true
+    Inside:
+    - Create document from the "Card Summary" template, summary_html = the month-close step's summary_html
+    - Convert that HTML to PDF, output file name = summary_file_name
+    - Outlook "Send email" to the same finance address the old send step used. Subject: "[CC] Credit card package " + month_label + " v" + version + " - " + group_count + " jobs, $" + month_total. HTML body: a short note naming the month, the number of jobs and the total. Attachments: the summary PDF first, then every item in month_files.
+    - "Update records in batch" on Transactions, source mark_sent, record ID = record_id: sent_in_package true, package_version_sent = version, sent_date = now
+    - "Update records in batch" on Splits, source mark_sent_splits, the same three values
+    Else:
+    - Log message (warning): month_label + " not sent - receipt files could not be used"
+    - Send email to the same finance address. Subject: "[CC] " + month_label + " not sent: receipt files could not be used". Body: the month_flags texts joined with line breaks.
+
+Do not turn the recipe on. When you are done, list each step you changed, added or deleted, with its step number.
